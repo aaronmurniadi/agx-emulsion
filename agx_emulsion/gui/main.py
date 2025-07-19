@@ -28,7 +28,7 @@ viewer.window._qt_viewer.dockLayerControls.setVisible(False)
 viewer.window._qt_viewer.dockLayerList.setVisible(False)
 layer_list = viewer.window.qt_viewer.dockLayerList
 settings = get_settings()
-settings.appearance.theme = 'light'
+settings.appearance.theme = 'system'
 
 # portrait = load_image_oiio('img/test/portrait_leaves_32bit_linear_prophoto_rgb.tif')
 # viewer.add_image(portrait,
@@ -393,6 +393,8 @@ def main():
     input_image.filter_uv.tooltip = 'Filter UV light, (amplitude, wavelength cutoff in nm, sigma in nm). It mainly helps for avoiding UV light ruining the reds. Changing this enlarger filters neutral will be affected.'
     input_image.filter_ir.tooltip = 'Filter IR light, (amplitude, wavelength cutoff in nm, sigma in nm). Changing this enlarger filters neutral will be affected.'
 
+    viewer.window.add_dock_widget(simulation, area="right", name="Main", tabify=True)
+
     viewer.window.add_dock_widget(layer_list, area="right", name="Layers", tabify=True)
     viewer.window.add_dock_widget(input_image, area="right", name="Input", tabify=True)
     viewer.window.add_dock_widget(halation, area="right", name="Halation", tabify=True)
@@ -401,7 +403,9 @@ def main():
     viewer.window.add_dock_widget(preflashing, area="right", name="Preflash", tabify=True)
     viewer.window.add_dock_widget(glare, area="right", name="Glare", tabify=True)
     viewer.window.add_dock_widget(special, area="right", name="Special", tabify=True)
-    viewer.window.add_dock_widget(simulation, area="right", name="Main", tabify=True)
+
+    viewer.window.add_dock_widget(filepicker, area="right", name="File", tabify=True)
+
     napari.run()
 
     # TODO: use magicclass to create collapsable widgets as in https://forum.image.sc/t/widgets-alignment-in-the-plugin-when-nested-magic-class-and-magicgui-are-used/62929 
