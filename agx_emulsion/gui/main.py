@@ -1,11 +1,13 @@
 import numpy as np
 import napari
+import json
 from enum import Enum
 from napari.layers import Image
 from napari.types import ImageData
 from napari.settings import get_settings
 from magicgui import magicgui
 from pathlib import Path
+from dotmap import DotMap
 # import matplotlib.pyplot as plt
 
 from agx_emulsion.config import ENLARGER_STEPS
@@ -160,8 +162,6 @@ def special(film_channel_swap=(0,1,2),
             print_density_min_factor=0.4,
             ):
     return
-
-import json
 
 def export_parameters(filepath, params):
     dot_params = DotMap(params)
@@ -393,18 +393,15 @@ def main():
     input_image.filter_uv.tooltip = 'Filter UV light, (amplitude, wavelength cutoff in nm, sigma in nm). It mainly helps for avoiding UV light ruining the reds. Changing this enlarger filters neutral will be affected.'
     input_image.filter_ir.tooltip = 'Filter IR light, (amplitude, wavelength cutoff in nm, sigma in nm). Changing this enlarger filters neutral will be affected.'
 
-    # tab1 = Container(layout='vertical', widgets=[grain, preflashing])
-    viewer.window.add_dock_widget(input_image, area="right", name='input', tabify=True)
-    # viewer.window.add_dock_widget(curves, area="right", name='curves', tabify=True)
-    viewer.window.add_dock_widget(halation, area="right", name='halation', tabify=True)
-    viewer.window.add_dock_widget(couplers, area="right", name='couplers', tabify=True)
-    viewer.window.add_dock_widget(grain, area="right", name='grain', tabify=True)
-    viewer.window.add_dock_widget(preflashing, area="right", name='preflash', tabify=True)
-    viewer.window.add_dock_widget(glare, area="right", name='glare', tabify=True)
-    viewer.window.add_dock_widget(special, area="right", name='special', tabify=True)
-    viewer.window.add_dock_widget(layer_list, area="right", name='layers', tabify=True)
-    viewer.window.add_dock_widget(filepicker, area="right", name='filepicker', tabify=True)
-    viewer.window.add_dock_widget(simulation, area="right", name='main', tabify=False)
+    viewer.window.add_dock_widget(layer_list, area="right", name="Layers", tabify=True)
+    viewer.window.add_dock_widget(input_image, area="right", name="Input", tabify=True)
+    viewer.window.add_dock_widget(halation, area="right", name="Halation", tabify=True)
+    viewer.window.add_dock_widget(couplers, area="right", name="Couplers", tabify=True)
+    viewer.window.add_dock_widget(grain, area="right", name="Grain", tabify=True)
+    viewer.window.add_dock_widget(preflashing, area="right", name="Preflash", tabify=True)
+    viewer.window.add_dock_widget(glare, area="right", name="Glare", tabify=True)
+    viewer.window.add_dock_widget(special, area="right", name="Special", tabify=True)
+    viewer.window.add_dock_widget(simulation, area="right", name="Main", tabify=True)
     napari.run()
 
     # TODO: use magicclass to create collapsable widgets as in https://forum.image.sc/t/widgets-alignment-in-the-plugin-when-nested-magic-class-and-magicgui-are-used/62929 
