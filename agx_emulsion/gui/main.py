@@ -23,7 +23,7 @@ from agx_emulsion.utils.numba_warmup import warmup
 warmup()
 
 # create a viewer and add a couple image layers
-viewer = napari.Viewer()
+viewer = napari.Viewer(title='AGX-Emulsion')
 viewer.window._qt_viewer.dockLayerControls.setVisible(False)
 viewer.window._qt_viewer.dockLayerList.setVisible(False)
 layer_list = viewer.window.qt_viewer.dockLayerList
