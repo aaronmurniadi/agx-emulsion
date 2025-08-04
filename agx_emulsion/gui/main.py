@@ -1,33 +1,29 @@
+import numpy as np
+import napari
 import json
 from enum import Enum
-from pathlib import Path
-
-import napari
-import numpy as np
-from dotmap import DotMap
-from magicgui import magicgui
 from napari.layers import Image
-from napari.settings import get_settings
 from napari.types import ImageData
-from qtpy.QtCore import Qt
-from qtpy.QtWidgets import QSplitter, QVBoxLayout, QWidget
+from napari.settings import get_settings
+from magicgui import magicgui
+from pathlib import Path
+from dotmap import DotMap
+# import matplotlib.pyplot as plt
 
 from agx_emulsion.config import ENLARGER_STEPS
-from agx_emulsion.model.process import photo_params, photo_process
-from agx_emulsion.model.stocks import FilmStocks, Illuminants, PrintPapers
-from agx_emulsion.profiles.factory import swap_channels
 from agx_emulsion.utils.io import load_image_oiio
-from agx_emulsion.utils.numba_warmup import warmup
-
-# import matplotlib.pyplot as plt
+from agx_emulsion.model.process import  photo_params, photo_process
+from agx_emulsion.model.stocks import FilmStocks, PrintPapers, Illuminants
 # from agx_emulsion.model.parametric import parametric_density_curves_model
 # from agx_emulsion.profiles.io import load_profile
+from agx_emulsion.profiles.factory import swap_channels
+from agx_emulsion.utils.numba_warmup import warmup
 
 # precompile numba functions
 warmup()
 
 # create a viewer and add a couple image layers
-viewer = napari.Viewer(title = 'AGX-Emulsion')
+viewer = napari.Viewer()
 viewer.window._qt_viewer.dockLayerControls.setVisible(False)
 viewer.window._qt_viewer.dockLayerList.setVisible(False)
 layer_list = viewer.window.qt_viewer.dockLayerList
@@ -397,30 +393,19 @@ def main():
     input_image.filter_uv.tooltip = 'Filter UV light, (amplitude, wavelength cutoff in nm, sigma in nm). It mainly helps for avoiding UV light ruining the reds. Changing this enlarger filters neutral will be affected.'
     input_image.filter_ir.tooltip = 'Filter IR light, (amplitude, wavelength cutoff in nm, sigma in nm). Changing this enlarger filters neutral will be affected.'
 
-    # Create a split dock widget with filepicker at top and simulation at bottom
-    main_widget = QWidget()
-    split_layout = QVBoxLayout(main_widget)
-    split_layout.setContentsMargins(0, 0, 0, 0)
-    splitter = QSplitter(Qt.Vertical)
-    splitter.addWidget(filepicker.native)
-    splitter.addWidget(simulation.native)
-    splitter.setSizes([25, 400])  # Set initial sizes (filepicker smaller)
-    split_layout.addWidget(splitter)    
-    main_widget = viewer.window.add_dock_widget(main_widget, area="left", name="Main", tabify=True)
+    viewer.window.add_dock_widget(simulation, area="right", name="Main", tabify=True)
 
-    # Add other widgets
-    viewer.window.add_dock_widget(layer_list, area="left", name="Layers", tabify=True)
-    viewer.window.add_dock_widget(input_image, area="left", name="Input", tabify=True)
-    viewer.window.add_dock_widget(halation, area="left", name="Halation", tabify=True)
-    viewer.window.add_dock_widget(couplers, area="left", name="Couplers", tabify=True)
-    viewer.window.add_dock_widget(grain, area="left", name="Grain", tabify=True)
-    viewer.window.add_dock_widget(preflashing, area="left", name="Preflash", tabify=True)
-    viewer.window.add_dock_widget(glare, area="left", name="Glare", tabify=True)
-    viewer.window.add_dock_widget(special, area="left", name="Special", tabify=True)
+    viewer.window.add_dock_widget(layer_list, area="right", name="Layers", tabify=True)
+    viewer.window.add_dock_widget(input_image, area="right", name="Input", tabify=True)
+    viewer.window.add_dock_widget(halation, area="right", name="Halation", tabify=True)
+    viewer.window.add_dock_widget(couplers, area="right", name="Couplers", tabify=True)
+    viewer.window.add_dock_widget(grain, area="right", name="Grain", tabify=True)
+    viewer.window.add_dock_widget(preflashing, area="right", name="Preflash", tabify=True)
+    viewer.window.add_dock_widget(glare, area="right", name="Glare", tabify=True)
+    viewer.window.add_dock_widget(special, area="right", name="Special", tabify=True)
 
-    # Set focus to main widget
-    main_widget.setVisible(True)
-    main_widget.raise_()
+    viewer.window.add_dock_widget(filepicker, area="right", name="File", tabify=True)
+
     napari.run()
 
     # TODO: use magicclass to create collapsable widgets as in https://forum.image.sc/t/widgets-alignment-in-the-plugin-when-nested-magic-class-and-magicgui-are-used/62929 
