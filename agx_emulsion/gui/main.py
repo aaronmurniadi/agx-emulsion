@@ -393,6 +393,7 @@ def main():
     input_image.filter_uv.tooltip = 'Filter UV light, (amplitude, wavelength cutoff in nm, sigma in nm). It mainly helps for avoiding UV light ruining the reds. Changing this enlarger filters neutral will be affected.'
     input_image.filter_ir.tooltip = 'Filter IR light, (amplitude, wavelength cutoff in nm, sigma in nm). Changing this enlarger filters neutral will be affected.'
 
+    focus = viewer.window.add_dock_widget(filepicker, area="right", name="File", tabify=True)
     viewer.window.add_dock_widget(simulation, area="right", name="Main", tabify=True)
 
     viewer.window.add_dock_widget(layer_list, area="right", name="Layers", tabify=True)
@@ -404,8 +405,8 @@ def main():
     viewer.window.add_dock_widget(glare, area="right", name="Glare", tabify=True)
     viewer.window.add_dock_widget(special, area="right", name="Special", tabify=True)
 
-    viewer.window.add_dock_widget(filepicker, area="right", name="File", tabify=True)
-
+    focus.setVisible(True)
+    focus.raise_()
     napari.run()
 
     # TODO: use magicclass to create collapsable widgets as in https://forum.image.sc/t/widgets-alignment-in-the-plugin-when-nested-magic-class-and-magicgui-are-used/62929 
