@@ -174,3 +174,10 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+*.jpg
+*.jpeg
+*.png
+*.tiff
+*.tif
+*.heic
+*.heif
