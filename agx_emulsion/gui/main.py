@@ -8,16 +8,13 @@ from napari.settings import get_settings
 from magicgui import magicgui
 from pathlib import Path
 from dotmap import DotMap
-# import matplotlib.pyplot as plt
 
-from agx_emulsion.config import ENLARGER_STEPS
-from agx_emulsion.utils.io import load_image_oiio
-from agx_emulsion.model.process import  photo_params, photo_process
-from agx_emulsion.model.stocks import FilmStocks, PrintPapers, Illuminants
-# from agx_emulsion.model.parametric import parametric_density_curves_model
-# from agx_emulsion.profiles.io import load_profile
-from agx_emulsion.profiles.factory import swap_channels
-from agx_emulsion.utils.numba_warmup import warmup
+from agx_emulsion.process.config import ENLARGER_STEPS
+from agx_emulsion.process.utils.io import load_image_oiio
+from agx_emulsion.process.core.process import  photo_params, photo_process
+from agx_emulsion.process.physics.stocks import FilmStocks, PrintPapers, Illuminants
+from agx_emulsion.process.profiles.factory import swap_channels
+from agx_emulsion.process.utils.numba_warmup import warmup
 
 # precompile numba functions
 warmup()
@@ -30,9 +27,6 @@ layer_list = viewer.window.qt_viewer.dockLayerList
 settings = get_settings()
 settings.appearance.theme = 'system'
 
-# portrait = load_image_oiio('img/test/portrait_leaves_32bit_linear_prophoto_rgb.tif')
-# viewer.add_image(portrait,
-#                  name="portrait")
 
 class RGBColorSpaces(Enum):
     sRGB = 'sRGB'
@@ -113,39 +107,6 @@ def glare(active=True,
           compensation_removal_transition=0.3):
     return
 
-# @magicgui(layout="vertical", call_button='plot curves')
-# def curves(use_parametric_curves=False,
-#            gamma=(0.7,0.7,0.7),
-#            log_exposure_0=(-1.4,-1.4,-1.52),
-#            density_max=(2.75,2.75,2.84),
-#            toe_size=(0.3,0.3,0.3),
-#            shoulder_size=(0.85,0.85,0.85),):
-#     profile = load_profile(simulation.film_stock.value.value)
-#     print(simulation.film_stock.value.value)
-#     log_exposure = profile.data.log_exposure
-#     density_curves = parametric_density_curves_model(log_exposure,
-#                                 gamma,
-#                                 log_exposure_0,
-#                                 density_max,
-#                                 toe_size,
-#                                 shoulder_size)
-#     plt.figure()
-#     colors = ['tab:red', 'tab:green', 'tab:blue']
-#     labels = ['R', 'G', 'B']
-#     gamma_factor = simulation.film_gamma_factor.value
-#     for i in range(3):
-#         plt.plot(log_exposure, density_curves[:,i], color=colors[i], label=labels[i])
-#         plt.plot(log_exposure/gamma_factor[i], profile.data.density_curves, color=colors[i], linestyle='--', label=None)
-#     plt.xlabel('log(Exposure)')
-#     plt.ylabel('Density')
-#     plt.legend()
-#     plt.title(profile.info.stock)
-#     plt.show()
-#     return
-
-# @magicgui(layout="vertical", call_button='fit negative density curves')
-# def fit_density_curves():
-#     return
 
 
 @magicgui(filename={"mode": "r"}, call_button='load image (e.g. png/exr)')
@@ -190,13 +151,11 @@ def simulation(input_layer:Image,
                print_exposure_compensation=False,
                print_y_filter_shift=0,
                print_m_filter_shift=0,
-            #    print_lens_blur=0.0,
                # scanner
                scan_lens_blur=0.00,
                scan_unsharp_mask=(0.7,0.7),
                output_color_space=RGBColorSpaces.sRGB,
                output_cctf_encoding=True,
-            #    compute_film_raw=False,
                compute_negative=False,
                compute_full_image=False,
                )->ImageData:    
@@ -237,7 +196,6 @@ def simulation(input_layer:Image,
     params.io.output_cctf_encoding = output_cctf_encoding
     params.io.full_image = compute_full_image
     params.io.compute_negative = compute_negative
-    # params.io.compute_film_raw = compute_film_raw
     
     # assign parameters to the film stock and paper
     params.negative.halation.active = halation.active.value
@@ -264,20 +222,12 @@ def simulation(input_layer:Image,
     params.negative.dir_couplers.diffusion_interlayer = couplers.diffusion_interlayer.value
     params.negative.dir_couplers.high_exposure_shift = couplers.high_exposure_shift.value
         
-    # # parametric curves
-    # params.negative.parametric.density_curves.active = curves.use_parametric_curves.value
-    # params.negative.parametric.density_curves.gamma = curves.gamma.value
-    # params.negative.parametric.density_curves.log_exposure_0 = curves.log_exposure_0.value
-    # params.negative.parametric.density_curves.density_max = curves.density_max.value
-    # params.negative.parametric.density_curves.toe_size = curves.toe_size.value
-    # params.negative.parametric.density_curves.shoulder_size = curves.shoulder_size.value
 
     params.enlarger.illuminant = print_illuminant.value
     params.enlarger.print_exposure = print_exposure
     params.enlarger.print_exposure_compensation = print_exposure_compensation
     params.enlarger.y_filter_shift = print_y_filter_shift
     params.enlarger.m_filter_shift = print_m_filter_shift
-    # params.enlarger.print_lens_blur = print_lens_blur
     params.enlarger.preflash_exposure = preflashing.exposure.value
     params.enlarger.preflash_y_filter_shift = preflashing.y_filter_shift.value
     params.enlarger.preflash_m_filter_shift = preflashing.m_filter_shift.value
@@ -295,8 +245,6 @@ def simulation(input_layer:Image,
 
     image = np.double(input_layer.data[:,:,:3])
     scan = photo_process(image, params)
-    # if params.io.compute_film_raw:
-    #     scan = np.vstack((scan[:, :, 0], scan[:, :, 1], scan[:, :, 2]))
     scan = np.uint8(scan*255)
     return scan
 
@@ -310,7 +258,6 @@ def main():
     simulation.print_y_filter_shift.max = ENLARGER_STEPS
     simulation.print_m_filter_shift.min = -ENLARGER_STEPS
     simulation.print_m_filter_shift.max = ENLARGER_STEPS
-    # simulation.print_lens_blur.step = 0.05
     simulation.scan_lens_blur.step = 0.05
 
     # tooltips to help users understand what the widgets do
@@ -325,7 +272,6 @@ def main():
     simulation.print_exposure_compensation.tooltip = 'Apply exposure compensation from negative exposure compensation ev, allow for changing of the negative exposure compensation while keeping constant print time.'
     simulation.print_y_filter_shift.tooltip = 'Y filter shift of the color enlarger from a neutral position, enlarger has 170 steps'
     simulation.print_m_filter_shift.tooltip = 'M filter shift of the color enlarger from a neutral position, enlarger has 170 steps'
-    # simulation.print_lens_blur.tooltip = 'Sigma of gaussian filter in pixel for the print lens blur'
     simulation.scan_lens_blur.tooltip = 'Sigma of gaussian filter in pixel for the scanner lens blur'
     simulation.scan_unsharp_mask.tooltip = 'Apply unsharp mask to the scan, [sigma in pixel, amount]'
     simulation.output_color_space.tooltip = 'Color space of the output image'
