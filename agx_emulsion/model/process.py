@@ -76,7 +76,7 @@ def photo_params(negative='kodak_portra_400_auc',
     params.debug.print_timings = False
     
     params.settings.rgb_to_raw_method = 'hanatos2025'
-    params.settings.use_camera_lut = False
+    params.settings.use_camera_lut = True
     params.settings.use_enlarger_lut = False
     params.settings.use_scanner_lut = False
     params.settings.lut_resolution = 17

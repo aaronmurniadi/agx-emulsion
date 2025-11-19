@@ -54,7 +54,7 @@ class AutoExposureMethods(Enum):
 @magicgui(layout="vertical", call_button='None')
 def grain(active=True,
           sublayers_active=True,
-          particle_area_um2=0.2,
+          particle_area_um2=0.1,
           particle_scale=(0.8,1.0,2),
           particle_scale_layers=(2.5,1.0,0.5),
           density_min=(0.07, 0.08, 0.12),
@@ -90,7 +90,7 @@ def preflashing(exposure=0.0,
 def halation(active=True,
              scattering_strength=(1.0,2.0,4.0),
              scattering_size_um=(30,20,15),
-             halation_strength=(3.0,0.30,0.1),
+             halation_strength=(10.0,7.30,7.1),
              halation_size_um=(200,200,200)):
     return
 
@@ -177,17 +177,17 @@ def load_parameters(filepath):
 # https://napari.org/guides/magicgui.html#return-annotations
 @magicgui(layout="vertical")
 def simulation(input_layer:Image,
-               film_stock=FilmStocks.kodak_gold_200,
+               film_stock=FilmStocks.kodak_vision3_500t,
                film_format_mm=35.0,
                camera_lens_blur_um=0.0,
                exposure_compensation_ev=0.0,
-               auto_exposure=True,
+               auto_exposure=False,
                auto_exposure_method=AutoExposureMethods.center_weighted,
                # print parameters
                print_paper=PrintPapers.kodak_supra_endura,
                print_illuminant=Illuminants.lamp,
                print_exposure=1.0,
-               print_exposure_compensation=True,
+               print_exposure_compensation=False,
                print_y_filter_shift=0,
                print_m_filter_shift=0,
             #    print_lens_blur=0.0,

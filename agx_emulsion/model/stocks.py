@@ -43,9 +43,9 @@ class PrintPapers(Enum):
 
 class Illuminants(Enum):
     lamp = 'TH-KG3-L'
-    # bulb = 'T'
-    # cine = 'K75P'
-    # led_rgb = 'LED-RGB1'
+    bulb = 'T'
+    cine = 'K75P'
+    led_rgb = 'LED-RGB1'
 
 def fit_print_filters_iter(profile):
     p = copy.copy(profile)
