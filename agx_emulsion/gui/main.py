@@ -23,7 +23,7 @@ warmup()
 viewer = napari.Viewer(title='AGX-Emulsion')
 viewer.window._qt_viewer.dockLayerControls.setVisible(False)
 viewer.window._qt_viewer.dockLayerList.setVisible(False)
-layer_list = viewer.window.qt_viewer.dockLayerList
+layer_list = viewer.window._qt_viewer.dockLayerList
 settings = get_settings()
 settings.appearance.theme = 'system'
 
