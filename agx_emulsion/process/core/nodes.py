@@ -111,6 +111,7 @@ class FilmExposureNode(Node):
         return raw
 
 class FilmDevelopmentNode(Node):
+    supports_chunking = True
     def process(self, raw, context: PipelineContext):
         if context.data.get('return_early'): return raw
         
@@ -129,6 +130,7 @@ class FilmDevelopmentNode(Node):
         return density_cmy
 
 class PrintExposureNode(Node):
+    supports_chunking = True
     def process(self, density_cmy, context: PipelineContext):
         if context.data.get('return_early'): return density_cmy
         
@@ -252,6 +254,7 @@ class PrintExposureNode(Node):
         return data_out
 
 class PrintDevelopmentNode(Node):
+    supports_chunking = True
     def process(self, log_raw, context: PipelineContext):
         if context.data.get('return_early'): return log_raw
         
@@ -267,14 +270,13 @@ class PrintDevelopmentNode(Node):
             
         return density_cmy
 
-class ScanNode(Node):
+class ScanSpectralNode(Node):
+    supports_chunking = True
     def process(self, density_cmy, context: PipelineContext):
         if context.data.get('return_early'): return density_cmy
         
         params = context.params
         rgb = self._density_cmy_to_rgb(density_cmy, params)
-        rgb = self._apply_blur_and_unsharp(rgb, params)
-        rgb = self._apply_cctf_encoding_and_clip(rgb, params)
         return rgb
 
     def _density_cmy_to_rgb(self, density_cmy, params):
@@ -321,22 +323,6 @@ class ScanNode(Node):
             xyz += glare_amount[:,:,None] * illuminant_xyz[None,None,:]
         return xyz
 
-    def _apply_blur_and_unsharp(self, data, params):
-        data = apply_gaussian_blur(data, params.scanner.lens_blur)
-        unsharp_mask = params.scanner.unsharp_mask
-        if unsharp_mask[0] > 0 and unsharp_mask[1] > 0:
-            data = apply_unsharp_mask(data, sigma=unsharp_mask[0], amount=unsharp_mask[1])
-        return data
-    
-    def _apply_cctf_encoding_and_clip(self, rgb, params):
-        color_space = params.io.output_color_space
-        if params.io.output_cctf_encoding:
-            rgb = colour.RGB_to_RGB(rgb, color_space, color_space,
-                    apply_cctf_decoding=False,
-                    apply_cctf_encoding=True)
-        rgb = np.clip(rgb, a_min=0, a_max=1)
-        return rgb
-
     # Helper methods duplicated/adapted from PrintExposureNode/FilmExposureNode to avoid circular deps for now
     # Ideally these should be in a shared utility module
     def _normalize_film_density(self, denisty_cmy, params):
@@ -375,7 +361,44 @@ class ScanNode(Node):
             data_out = spectral_calculation(data)
         return data_out
 
+class ScanBlurNode(Node):
+    supports_chunking = False
+    def process(self, rgb, context: PipelineContext):
+        if context.data.get('return_early'): return rgb
+        params = context.params
+        rgb = self._apply_blur_and_unsharp(rgb, params)
+        rgb = self._apply_cctf_encoding_and_clip(rgb, params)
+        return rgb
+
+    def _apply_blur_and_unsharp(self, data, params):
+        data = apply_gaussian_blur(data, params.scanner.lens_blur)
+        unsharp_mask = params.scanner.unsharp_mask
+        if unsharp_mask[0] > 0 and unsharp_mask[1] > 0:
+            data = apply_unsharp_mask(data, sigma=unsharp_mask[0], amount=unsharp_mask[1])
+        return data
+    
+    def _apply_cctf_encoding_and_clip(self, rgb, params):
+        color_space = params.io.output_color_space
+        if params.io.output_cctf_encoding:
+            rgb = colour.RGB_to_RGB(rgb, color_space, color_space,
+                    apply_cctf_decoding=False,
+                    apply_cctf_encoding=True)
+        rgb = np.clip(rgb, a_min=0, a_max=1)
+        return rgb
+
+class ScanNode(Node):
+    # Wrapper for backward compatibility if needed, but we will replace usage in process.py
+    # Or we can just implement process to call the two new nodes logic, but that defeats the chunking purpose if called as one node.
+    # So we will deprecate this or leave it as is but unused in optimized pipeline.
+    def process(self, density_cmy, context: PipelineContext):
+        # Just delegate to new nodes logic sequentially without chunking benefit if used directly
+        spectral_node = ScanSpectralNode()
+        blur_node = ScanBlurNode()
+        rgb = spectral_node.process(density_cmy, context)
+        return blur_node.process(rgb, context)
+
 class RescaleOutputNode(Node):
+    supports_chunking = True
     def process(self, scan, context: PipelineContext):
         preview_resize_factor = context.data.get('preview_resize_factor', 1.0)
         if preview_resize_factor != 1.0:

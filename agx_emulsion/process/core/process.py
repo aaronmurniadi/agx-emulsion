@@ -6,7 +6,7 @@ from agx_emulsion.process.core.pipeline import Pipeline, PipelineContext
 from agx_emulsion.process.core.nodes import (
     AutoExposureNode, CropAndRescaleNode, ProfileChangesNode,
     FilmExposureNode, FilmDevelopmentNode, PrintExposureNode,
-    PrintDevelopmentNode, ScanNode, RescaleOutputNode
+    PrintDevelopmentNode, ScanSpectralNode, ScanBlurNode, RescaleOutputNode
 )
 from agx_emulsion.process.utils.io import read_neutral_ymc_filter_values
 from agx_emulsion.process.profiles.io import load_profile
@@ -81,6 +81,7 @@ def photo_params(negative='kodak_portra_400_auc',
     params.settings.use_scanner_lut = False
     params.settings.lut_resolution = 17
     params.settings.use_fast_stats = False
+    params.settings.chunk_size = 256 # Default chunk size
     
     return params
 
@@ -130,7 +131,8 @@ class AgXPhoto():
         pipeline.add_node(FilmDevelopmentNode())
         pipeline.add_node(PrintExposureNode())
         pipeline.add_node(PrintDevelopmentNode())
-        pipeline.add_node(ScanNode())
+        pipeline.add_node(ScanSpectralNode())
+        pipeline.add_node(ScanBlurNode())
         pipeline.add_node(RescaleOutputNode())
         
         # Create context
