@@ -39,7 +39,7 @@ class AutoExposureMethods(Enum):
     median = 'median'
     center_weighted = 'center_weighted'
 
-@magicclass(layout="vertical", labels=False, name="Run")
+@magicclass(labels=False, name="Run")
 class Run:
     def __init__(self, ui):
         self._ui = ui
@@ -48,12 +48,12 @@ class Run:
         """Run the simulation."""
         self._ui._run_simulation()
 
-@magicclass(layout="vertical", widget_type="scrollable")
+@magicclass(widget_type="scrollable")
 class AgXEmulsionConfiguration:
     def __init__(self):
         self._viewer = None
 
-    @magicclass(layout="vertical", name="Input Image")
+    @magicclass(name="Input Image")
     class Input:
         filename = field(Path("./"), label="File", options={"mode": "r"})
         
@@ -69,7 +69,7 @@ class AgXEmulsionConfiguration:
             if viewer:
                 viewer.add_image(img_array, name="Input Image")
 
-    @magicclass(layout="vertical", name="Input Image")
+    @magicclass(name="Basic Options")
     class BasicOptions:
         compute_full_image = vfield(False, label="Compute Full Image", options={"tooltip": "Do not apply preview resize, compute full resolution image. Keeps the crop if active."})
         preview_resize_factor = vfield(0.3, label="Preview Resize", options={"tooltip": "Scale image size down (0-1) to speed up preview processing"})
@@ -84,7 +84,7 @@ class AgXEmulsionConfiguration:
         filter_ir = vfield((1, 675, 15), label="Filter IR", options={"tooltip": "Filter IR light, (amplitude, wavelength cutoff in nm, sigma in nm). Changing this enlarger filters neutral will be affected."})
         
 
-    @magicclass(layout="vertical", name="Film Simulation")
+    @magicclass(name="Film Simulation")
     class Film:
         film_stock = vfield(FilmStocks.kodak_vision3_500t, label="Film Stock", options={"tooltip": "Film stock to simulate"})
         film_format_mm = vfield(35.0, label="Format (mm)", options={"tooltip": "Long edge of the film format in millimeters, e.g. 35mm or 60mm"})
@@ -93,7 +93,7 @@ class AgXEmulsionConfiguration:
         auto_exposure = vfield(False, label="Auto Exposure", options={"tooltip": "Automatically adjust exposure based on the image content"})
         auto_exposure_method = vfield(AutoExposureMethods.center_weighted, label="Auto Exposure Method")
 
-        @magicclass(layout="vertical", name="Grain")
+        @magicclass(name="Grain")
         class Grain:
             active = vfield(True, label="Active", options={"tooltip": "Add grain to the negative"})
             sublayers_active = vfield(True, label="Sublayers Active")
@@ -106,7 +106,7 @@ class AgXEmulsionConfiguration:
             blur_dye_clouds_um = vfield(1.0, label="Blur Dye Clouds (um)", options={"tooltip": "Scale the sigma of gaussian blur in um for the dye clouds, to be used at high magnifications, (default 1)"})
             micro_structure = vfield((0.1, 30), label="Micro Structure", options={"tooltip": "Parameter for micro-structure due to clumps at the molecular level, [sigma blur of micro-structure / ultimate light-resolution (0.10 um default), size of molecular clumps in nm (30 nm default)]. Only for insane magnifications."})
 
-        @magicclass(layout="vertical", name="Halation")
+        @magicclass(name="Halation")
         class Halation:
             active = vfield(True, label="Active")
             scattering_strength = vfield((1.0, 2.0, 4.0), label="Scattering Strength", options={"tooltip": "Fraction of scattered light (0-100, percentage) for each channel [R,G,B]"})
@@ -114,7 +114,7 @@ class AgXEmulsionConfiguration:
             halation_strength = vfield((10.0, 7.30, 7.1), label="Halation Strength", options={"tooltip": "Fraction of halation light (0-100, percentage) for each channel [R,G,B]"})
             halation_size_um = vfield((200, 200, 200), label="Halation Size (um)", options={"tooltip": "Size of the halation effect in micrometers for each channel [R,G,B], sigma of gaussian filter."})
 
-        @magicclass(layout="vertical", name="Couplers")
+        @magicclass(name="Couplers")
         class Couplers:
             active = vfield(True, label="Active")
             dir_couplers_amount = vfield(1.0, label="Amount", options={"step": 0.05, "tooltip": "Amount of coupler inhibitors, control saturation, typical values (0.8-1.2)."})
@@ -123,7 +123,7 @@ class AgXEmulsionConfiguration:
             diffusion_interlayer = vfield(2.0, label="Diffusion Interlayer", options={"tooltip": "Sigma in number of layers for diffusion across the rgb layers (typical layer thickness 3-5 um, so roughly 1.0-4.0 layers), affects saturation."})
             high_exposure_shift = vfield(0.0, label="High Exposure Shift")
 
-    @magicclass(layout="vertical", name="Print Simulation")
+    @magicclass(name="Print Simulation")
     class Print:
         print_paper = vfield(PrintPapers.kodak_supra_endura, label="Print Paper", options={"tooltip": "Print paper to simulate"})
         print_illuminant = vfield(Illuminants.lamp, label="Illuminant", options={"tooltip": "Print illuminant to simulate"})
@@ -132,14 +132,14 @@ class AgXEmulsionConfiguration:
         print_y_filter_shift = vfield(0, label="Y Filter Shift", options={"min": -ENLARGER_STEPS, "max": ENLARGER_STEPS, "tooltip": "Y filter shift of the color enlarger from a neutral position, enlarger has 170 steps"})
         print_m_filter_shift = vfield(0, label="M Filter Shift", options={"min": -ENLARGER_STEPS, "max": ENLARGER_STEPS, "tooltip": "M filter shift of the color enlarger from a neutral position, enlarger has 170 steps"})
 
-        @magicclass(layout="vertical", name="Preflashing")
+        @magicclass(name="Preflashing")
         class Preflashing:
             exposure = vfield(0.0, label="Exposure", options={"step": 0.005, "tooltip": "Preflash exposure value in ev for the print"})
             y_filter_shift = vfield(0, label="Y Filter Shift", options={"min": -ENLARGER_STEPS, "tooltip": "Shift the Y filter of the enlarger from the neutral position for the preflash, typical values (-20-20), enlarger has 170 steps"})
             m_filter_shift = vfield(0, label="M Filter Shift", options={"min": -ENLARGER_STEPS, "tooltip": "Shift the M filter of the enlarger from the neutral position for the preflash, typical values (-20-20), enlarger has 170 steps"})
             just_preflash = vfield(False, label="Just Preflash", options={"tooltip": "Only apply preflash to the print, to visualize the preflash effect"})
 
-        @magicclass(layout="vertical", name="Glare")
+        @magicclass(name="Glare")
         class Glare:
             active = vfield(True, label="Active", options={"tooltip": "Add glare to the print"})
             percent = vfield(0.10, label="Percent", options={"step": 0.05, "tooltip": "Percentage of the glare light (typically 0.1-0.25)"})
@@ -149,7 +149,7 @@ class AgXEmulsionConfiguration:
             compensation_removal_density = vfield(1.2, label="Comp Removal Density", options={"tooltip": "Density of the glare compensation removal from the print, typical values (1.0-1.5)."})
             compensation_removal_transition = vfield(0.3, label="Comp Removal Transition", options={"tooltip": "Transition density range of the glare compensation removal from the print, typical values (0.1-0.5)."})
 
-    @magicclass(layout="vertical", name="Scanner")
+    @magicclass(name="Scanner")
     class Scanner:
         scan_lens_blur = vfield(0.00, label="Lens Blur", options={"step": 0.05, "tooltip": "Sigma of gaussian filter in pixel for the scanner lens blur"})
         scan_unsharp_mask = vfield((0.7, 0.7), label="Unsharp Mask", options={"tooltip": "Apply unsharp mask to the scan, [sigma in pixel, amount]"})
@@ -157,7 +157,7 @@ class AgXEmulsionConfiguration:
         output_cctf_encoding = vfield(True, label="Output CCTF Encoding", options={"tooltip": "Apply the cctf transfer function of the color space. If false, data is linear."})
         compute_negative = vfield(False, label="Compute Negative", options={"tooltip": "Show a scan of the negative instead of the print"})
 
-    @magicclass(layout="vertical", name="Advanced")
+    @magicclass(name="Advanced")
     class Advanced:
         film_channel_swap = vfield((0, 1, 2), label="Film Channel Swap")
         film_gamma_factor = vfield(1.0, label="Film Gamma Factor", options={"tooltip": "Gamma factor of the density curves of the negative, < 1 reduce contrast, > 1 increase contrast"})
