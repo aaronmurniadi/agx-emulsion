@@ -5,8 +5,9 @@ from enum import Enum
 from napari.layers import Image
 from napari.types import ImageData
 from napari.settings import get_settings
+from napari.utils import progress
 from magicgui.widgets import Label
-from qtpy.QtCore import Qt
+from qtpy.QtCore import Qt, QObject, Signal
 
 from pathlib import Path
 from dotmap import DotMap
@@ -39,6 +40,9 @@ class RGBtoRAWMethod(Enum):
 class AutoExposureMethods(Enum):
     median = 'median'
     center_weighted = 'center_weighted'
+
+class WorkerSignals(QObject):
+    progress = Signal(str, int, int)
 
 @magicclass(widget_type="scrollable")
 class AgXEmulsionConfiguration:
@@ -267,14 +271,37 @@ class AgXEmulsionConfiguration:
 
         image = np.double(input_layer.data[:,:,:3])
         
+        # Create signals and progress bar
+        self.signals = WorkerSignals()
+        pbr = progress(total=0)
+        
+        def on_progress(name, step, total):
+            pbr.total = total
+            pbr.set_description(f"Running: {name}")
+            pbr.update(1)
+            
+        self.signals.progress.connect(on_progress)
+        
+        def on_finished(scan):
+            pbr.close()
+            self._on_process_finished(scan)
+            
+        def on_error(e):
+            pbr.close()
+            print(f"Error during simulation: {e}")
+
         # Run async
-        worker = self._process_image(image, params)
-        worker.returned.connect(self._on_process_finished)
+        worker = self._process_image(image, params, progress_signal=self.signals.progress)
+        worker.returned.connect(on_finished)
+        worker.errored.connect(on_error)
         worker.start()
 
     @thread_worker
-    def _process_image(self, image, params):
-        scan = photo_process(image, params)
+    def _process_image(self, image, params, progress_signal):
+        def cb(name, step, total):
+            progress_signal.emit(name, step, total)
+            
+        scan = photo_process(image, params, progress_callback=cb)
         scan = np.uint8(scan*255)
         return scan
 

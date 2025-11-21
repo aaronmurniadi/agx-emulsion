@@ -24,7 +24,7 @@ class Pipeline:
     def add_node(self, node: Node):
         self.nodes.append(node)
 
-    def run(self, image: Any, context: PipelineContext) -> Any:
+    def run(self, image: Any, context: PipelineContext, progress_callback=None) -> Any:
         chunk_size = context.params.settings.get('chunk_size', 0)
         is_chunked = False
         chunks = []
@@ -35,8 +35,10 @@ class Pipeline:
             
             total_start_time = time.perf_counter()
             
-            for node in self.nodes:
+            for i, node in enumerate(self.nodes):
                 node_name = node.__class__.__name__
+                if progress_callback:
+                    progress_callback(node_name, i, len(self.nodes))
                 start_time = time.perf_counter()
                 
                 # Refined logic:
