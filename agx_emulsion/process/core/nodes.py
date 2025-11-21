@@ -398,7 +398,7 @@ class ScanNode(Node):
         return blur_node.process(rgb, context)
 
 class RescaleOutputNode(Node):
-    supports_chunking = True
+    supports_chunking = False
     def process(self, scan, context: PipelineContext):
         preview_resize_factor = context.data.get('preview_resize_factor', 1.0)
         if preview_resize_factor != 1.0:
