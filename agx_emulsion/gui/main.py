@@ -64,6 +64,7 @@ class AgXEmulsionConfiguration:
             viewer = self.__magicclass_parent__._viewer
             if viewer:
                 viewer.add_image(img_array, name="Input Image")
+                viewer.reset_view()
 
     @magicclass(labels=False, name="Run", layout="horizontal")
     class Run:
@@ -285,6 +286,8 @@ class AgXEmulsionConfiguration:
         def on_finished(scan):
             pbr.close()
             self._on_process_finished(scan)
+            if self._viewer:
+                self._viewer.reset_view()
             
         def on_error(e):
             pbr.close()
