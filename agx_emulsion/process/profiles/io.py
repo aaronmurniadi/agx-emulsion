@@ -27,7 +27,21 @@ def load_profile(stock):
     resource = package / filename
     profile = DotMap()
     with resource.open("r") as file:
-        profile = DotMap(json.load(file))
+        data = json.load(file)
+    
+    def fix_nones(obj):
+        if isinstance(obj, list):
+            return [fix_nones(x) for x in obj]
+        elif isinstance(obj, dict):
+            return {k: fix_nones(v) for k, v in obj.items()}
+        elif obj is None:
+            return np.nan
+        else:
+            return obj
+
+    data = fix_nones(data)
+    profile = DotMap(data)
+    
     profile.data.log_sensitivity = np.array(profile.data.log_sensitivity)
     profile.data.dye_density = np.array(profile.data.dye_density)
     profile.data.density_curves = np.array(profile.data.density_curves)
