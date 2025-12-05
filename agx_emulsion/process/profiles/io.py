@@ -4,6 +4,19 @@ import numpy as np
 from dotmap import DotMap
 import importlib.resources as pkg_resources
 
+def replace_nan_with_null(obj):
+    """Recursively replace NaN values with None (which becomes null in JSON)"""
+    if isinstance(obj, dict):
+        return {k: replace_nan_with_null(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [replace_nan_with_null(item) for item in obj]
+    elif isinstance(obj, (float, np.floating)):
+        if np.isnan(obj):
+            return None
+        return obj
+    else:
+        return obj
+
 def save_profile(profile, suffix=''):
     profile.info.stock = profile.info.stock + suffix
     profile = copy.copy(profile)
@@ -18,8 +31,10 @@ def save_profile(profile, suffix=''):
     filename = profile.info.stock + '.json'
     resource = package / filename
     print('Saving to:', filename)
+    profile_dict = profile.toDict()
+    profile_dict = replace_nan_with_null(profile_dict)
     with resource.open("w") as file:
-        json.dump(profile.toDict(), file, indent=4)
+        json.dump(profile_dict, file, indent=4)
 
 def load_profile(stock):
     package = pkg_resources.files('agx_emulsion.data.profiles')

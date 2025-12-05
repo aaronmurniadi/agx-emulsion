@@ -25,6 +25,7 @@ class FilmStocks(Enum):
     kodak_vision3_250d = 'kodak_vision3_250d_uc'
     kodak_vision3_200t = 'kodak_vision3_200t_uc'
     kodak_vision3_500t = 'kodak_vision3_500t_uc'
+    kodak_100t_5247 = 'kodak_100t_5247_uc'
     # fuji pro
     fujifilm_pro_400h = 'fujifilm_pro_400h_auc'
     # fuji consumer

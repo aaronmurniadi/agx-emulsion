@@ -90,7 +90,7 @@ def guess_start_and_bounds_norm_cdfs(loge, data, type):
                 0.05, 0.05, 0.05,
                 ]
         x_ub = [
-                np.max(data), np.max(data), np.max(data),
+                np.max(loge), np.max(loge), np.max(loge),  # Fixed: use max(loge) not max(data) for centers
                 density_max_layer, density_max_layer, density_max_layer,
                 2, 2, 2,
                 ]
