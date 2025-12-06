@@ -24,10 +24,38 @@ class Pipeline:
     def add_node(self, node: Node):
         self.nodes.append(node)
 
-    def run(self, image: Any, context: PipelineContext, progress_callback=None) -> Any:
+    def run(self, image: Any, context: PipelineContext, progress_callback=None, node_complete_callback=None) -> Any:
         chunk_size = context.params.settings.get('chunk_size', 0)
         is_chunked = False
         chunks = []
+
+        def _merge_chunks(chunks):
+            """Helper function to merge chunks into a single image."""
+            total_h = 0
+            total_w = 0
+            channels = 0
+            dtype = chunks[0][2].dtype
+            
+            for y, x, chunk in chunks:
+                ch_h, ch_w = chunk.shape[:2]
+                total_h = max(total_h, y + ch_h)
+                total_w = max(total_w, x + ch_w)
+                if len(chunk.shape) > 2:
+                    channels = chunk.shape[2]
+            
+            if channels > 0:
+                image = np.zeros((total_h, total_w, channels), dtype=dtype)
+            else:
+                image = np.zeros((total_h, total_w), dtype=dtype)
+                
+            for y, x, chunk in chunks:
+                ch_h, ch_w = chunk.shape[:2]
+                if channels > 0:
+                    image[y:y+ch_h, x:x+ch_w, :] = chunk
+                else:
+                    image[y:y+ch_h, x:x+ch_w] = chunk
+            
+            return image
 
         with open('runtime.log', 'w') as f:
             f.write("Pipeline Execution Log\n")
@@ -61,74 +89,30 @@ class Pipeline:
                         new_chunks.append((y, x, node.process(chunk, context)))
                     chunks = new_chunks
                     
+                    # Get merged image for callback if needed
+                    current_image = _merge_chunks(chunks) if node_complete_callback else None
+                    
                 else:
                     if is_chunked:
                         # Merge
-                        # Determine new shape from chunks
-                        # Assuming all chunks have same channels and dtype
-                        # and they tile the image.
-                        # We need to find the total height and width.
-                        # Since we stored (y, x), we can find max y+h and max x+w
-                        
-                        total_h = 0
-                        total_w = 0
-                        channels = 0
-                        dtype = chunks[0][2].dtype
-                        
-                        for y, x, chunk in chunks:
-                            ch_h, ch_w = chunk.shape[:2]
-                            total_h = max(total_h, y + ch_h)
-                            total_w = max(total_w, x + ch_w)
-                            if len(chunk.shape) > 2:
-                                channels = chunk.shape[2]
-                        
-                        if channels > 0:
-                            image = np.zeros((total_h, total_w, channels), dtype=dtype)
-                        else:
-                            image = np.zeros((total_h, total_w), dtype=dtype)
-                            
-                        for y, x, chunk in chunks:
-                            ch_h, ch_w = chunk.shape[:2]
-                            if channels > 0:
-                                image[y:y+ch_h, x:x+ch_w, :] = chunk
-                            else:
-                                image[y:y+ch_h, x:x+ch_w] = chunk
-                        
+                        image = _merge_chunks(chunks)
                         is_chunked = False
                         chunks = []
                     
                     image = node.process(image, context)
+                    current_image = image
 
                 end_time = time.perf_counter()
                 duration = end_time - start_time
                 f.write(f"{node_name}: {duration:.6f} seconds\n")
+                
+                # Call node completion callback with the output image
+                if node_complete_callback and current_image is not None:
+                    node_complete_callback(node_name, current_image)
             
             # Ensure we merge at the end if still chunked
             if is_chunked:
-                 # Merge logic duplicated (should be a helper method but inline for now)
-                total_h = 0
-                total_w = 0
-                channels = 0
-                dtype = chunks[0][2].dtype
-                
-                for y, x, chunk in chunks:
-                    ch_h, ch_w = chunk.shape[:2]
-                    total_h = max(total_h, y + ch_h)
-                    total_w = max(total_w, x + ch_w)
-                    if len(chunk.shape) > 2:
-                        channels = chunk.shape[2]
-                
-                if channels > 0:
-                    image = np.zeros((total_h, total_w, channels), dtype=dtype)
-                else:
-                    image = np.zeros((total_h, total_w), dtype=dtype)
-                    
-                for y, x, chunk in chunks:
-                    ch_h, ch_w = chunk.shape[:2]
-                    if channels > 0:
-                        image[y:y+ch_h, x:x+ch_w, :] = chunk
-                    else:
-                        image[y:y+ch_h, x:x+ch_w] = chunk
+                image = _merge_chunks(chunks)
                 is_chunked = False
 
             total_end_time = time.perf_counter()

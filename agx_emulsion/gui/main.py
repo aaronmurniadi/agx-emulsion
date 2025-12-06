@@ -43,6 +43,7 @@ class AutoExposureMethods(Enum):
 
 class WorkerSignals(QObject):
     progress = Signal(str, int, int)
+    node_complete = Signal(str, object)  # node_name, output_image
 
 @magicclass(widget_type="scrollable")
 class AgXEmulsionConfiguration:
@@ -283,6 +284,19 @@ class AgXEmulsionConfiguration:
             
         self.signals.progress.connect(on_progress)
         
+        def on_node_complete(node_name, output_image):
+            """Update Simulation Result layer when a node completes."""
+            if self._viewer and output_image is not None:
+                # Convert to uint8 for display
+                display_image = np.uint8(np.clip(output_image * 255, 0, 255))
+                layer_name = "Simulation Result"
+                if layer_name in self._viewer.layers:
+                    self._viewer.layers[layer_name].data = display_image
+                else:
+                    self._viewer.add_image(display_image, name=layer_name)
+        
+        self.signals.node_complete.connect(on_node_complete)
+        
         def on_finished(scan):
             pbr.close()
             self._on_process_finished(scan)
@@ -294,17 +308,20 @@ class AgXEmulsionConfiguration:
             print(f"Error during simulation: {e}")
 
         # Run async
-        worker = self._process_image(image, params, progress_signal=self.signals.progress)
+        worker = self._process_image(image, params, progress_signal=self.signals.progress, node_complete_signal=self.signals.node_complete)
         worker.returned.connect(on_finished)
         worker.errored.connect(on_error)
         worker.start()
 
     @thread_worker
-    def _process_image(self, image, params, progress_signal):
+    def _process_image(self, image, params, progress_signal, node_complete_signal):
         def cb(name, step, total):
             progress_signal.emit(name, step, total)
+        
+        def node_cb(node_name, output_image):
+            node_complete_signal.emit(node_name, output_image)
             
-        scan = photo_process(image, params, progress_callback=cb)
+        scan = photo_process(image, params, progress_callback=cb, node_complete_callback=node_cb)
         scan = np.uint8(scan*255)
         return scan
 

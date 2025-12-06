@@ -119,7 +119,7 @@ class AgXPhoto():
             self.negative.glare.active = False
             self.print_paper.glare.active = False
 
-    def process(self, image, progress_callback=None):
+    def process(self, image, progress_callback=None, node_complete_callback=None):
         image = np.double(np.array(image)[:,:,0:3])
         
         # Initialize pipeline
@@ -139,7 +139,7 @@ class AgXPhoto():
         context = PipelineContext(self._params)
         
         # Run pipeline
-        result = pipeline.run(image, context, progress_callback=progress_callback)
+        result = pipeline.run(image, context, progress_callback=progress_callback, node_complete_callback=node_complete_callback)
         
         # Update timings if needed (not fully implemented in nodes yet, but keeping structure)
         # self.timings = context.timings 
@@ -148,9 +148,9 @@ class AgXPhoto():
         
 
 
-def photo_process(image, params, progress_callback=None):
+def photo_process(image, params, progress_callback=None, node_complete_callback=None):
     photo = AgXPhoto(params)
-    image_out = photo.process(image, progress_callback=progress_callback)
+    image_out = photo.process(image, progress_callback=progress_callback, node_complete_callback=node_complete_callback)
     if params.debug.print_timings:
         print(photo.timings)
         plot_timings(photo.timings)
