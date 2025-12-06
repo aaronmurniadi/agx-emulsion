@@ -1,3 +1,4 @@
+# fmt: off
 import matplotlib.pyplot as plt
 from agx_emulsion.process.profiles.factory import create_profile, process_negative_profile, process_paper_profile, plot_profile, replace_fitted_density_curves, adjust_log_exposure
 from agx_emulsion.process.profiles.io import save_profile

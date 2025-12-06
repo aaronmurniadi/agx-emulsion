@@ -1,7 +1,8 @@
 import numpy as np
 from numba import njit, prange
 
-@njit(inline='always', cache=True)
+
+@njit(inline="always", cache=True)
 def reflect_index(i, n):
     if i < 0:
         return -i
@@ -9,6 +10,7 @@ def reflect_index(i, n):
         return 2 * n - i - 2
     else:
         return i
+
 
 @njit(cache=True)
 def gaussian_kernel_1d(sigma, truncate):
@@ -24,6 +26,7 @@ def gaussian_kernel_1d(sigma, truncate):
     for i in range(size):
         kernel[i] /= sum_val
     return kernel, radius
+
 
 # --- Convolution using Kahan summation ---
 @njit(parallel=False, fastmath=True, cache=True)
@@ -46,6 +49,7 @@ def convolve_vertical_kahan(image, output, kernel, radius):
                 sum_val = t
             output[i, j] = sum_val
 
+
 @njit(parallel=False, fastmath=True, cache=True)
 def convolve_horizontal_kahan(image, output, kernel, radius):
     n, m = image.shape
@@ -66,6 +70,7 @@ def convolve_horizontal_kahan(image, output, kernel, radius):
                 sum_val = t
             output[i, j] = sum_val
 
+
 @njit(fastmath=True, cache=True)
 def _gaussian_filter_2d_kahan(image, sigma, truncate):
     kernel, radius = gaussian_kernel_1d(sigma, truncate)
@@ -74,6 +79,7 @@ def _gaussian_filter_2d_kahan(image, sigma, truncate):
     convolve_vertical_kahan(image, tmp, kernel, radius)
     convolve_horizontal_kahan(tmp, output, kernel, radius)
     return output
+
 
 # --- 3D Filtering with scalar sigma ---
 @njit(parallel=False, fastmath=True, cache=True)
@@ -89,6 +95,7 @@ def fast_gaussian_filter_3d_kahan(image, sigma, truncate):
         convolve_horizontal_kahan(tmp, output[:, :, channel], kernel, radius)
     return output
 
+
 # --- 3D Filtering with per-channel sigma ---
 @njit(parallel=False, fastmath=True, cache=True)
 def fast_gaussian_filter_3d_multi_kahan(image, sigma_arr, truncate):
@@ -102,6 +109,7 @@ def fast_gaussian_filter_3d_multi_kahan(image, sigma_arr, truncate):
         convolve_vertical_kahan(img, tmp, kernel, radius)
         convolve_horizontal_kahan(tmp, output[:, :, channel], kernel, radius)
     return output
+
 
 def fast_gaussian_filter(image, sigma, truncate=4.0):
     """
@@ -120,6 +128,7 @@ def fast_gaussian_filter(image, sigma, truncate=4.0):
     else:
         raise ValueError("Unsupported image dimension: {}".format(image.ndim))
 
+
 def warmup_fast_gaussian_filter():
     dummy2d = np.random.rand(64, 64).astype(np.float64)
     dummy3d = np.random.rand(64, 64, 3).astype(np.float64)
@@ -128,7 +137,8 @@ def warmup_fast_gaussian_filter():
     fast_gaussian_filter(dummy2d, sigma, truncate)
     fast_gaussian_filter(dummy3d, sigma, truncate)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     import time
     from scipy.ndimage import gaussian_filter
     import matplotlib.pyplot as plt
@@ -143,11 +153,11 @@ if __name__ == '__main__':
 
     # --- 2D Filtering ---
     filtered_fast_2d = fast_gaussian_filter(img2d, sigma, truncate)
-    filtered_scipy_2d = gaussian_filter(img2d, sigma, truncate=truncate, mode='reflect')
+    filtered_scipy_2d = gaussian_filter(img2d, sigma, truncate=truncate, mode="reflect")
     error2d = np.abs(filtered_fast_2d - filtered_scipy_2d).max()
     print("Max error (2D):", error2d)
     plt.figure(figsize=(6, 5))
-    plt.imshow(np.abs(filtered_fast_2d - filtered_scipy_2d), cmap='hot')
+    plt.imshow(np.abs(filtered_fast_2d - filtered_scipy_2d), cmap="hot")
     plt.colorbar()
     plt.title("Absolute difference: fast_gaussian_filter vs SciPy (2D)")
     plt.show()
@@ -160,14 +170,14 @@ if __name__ == '__main__':
 
     t0 = time.time()
     for i in range(iterations):
-        gaussian_filter(img2d, sigma, truncate=truncate, mode='reflect')
+        gaussian_filter(img2d, sigma, truncate=truncate, mode="reflect")
     t_scipy_2d = (time.time() - t0) / iterations
 
     print("2D - fast_gaussian_filter time: %.5f s, SciPy time: %.5f s" % (t_fast_2d, t_scipy_2d))
 
     # --- 3D Filtering with scalar sigma ---
     filtered_fast_3d = fast_gaussian_filter(img3d, sigma, truncate)
-    filtered_scipy_3d = gaussian_filter(img3d, sigma, truncate=truncate, mode='reflect')
+    filtered_scipy_3d = gaussian_filter(img3d, sigma, truncate=truncate, mode="reflect")
     error3d = np.abs(filtered_fast_3d - filtered_scipy_3d).max()
     print("Max error (3D, scalar sigma):", error3d)
 
@@ -178,20 +188,22 @@ if __name__ == '__main__':
 
     t0 = time.time()
     for i in range(iterations):
-        gaussian_filter(img3d, sigma, truncate=truncate, mode='reflect')
+        gaussian_filter(img3d, sigma, truncate=truncate, mode="reflect")
     t_scipy_3d = (time.time() - t0) / iterations
 
-    print("3D - fast_gaussian_filter time (scalar sigma): %.5f s, SciPy time: %.5f s" % (t_fast_3d, t_scipy_3d))
+    print(
+        "3D - fast_gaussian_filter time (scalar sigma): %.5f s, SciPy time: %.5f s"
+        % (t_fast_3d, t_scipy_3d)
+    )
 
     # --- 3D Filtering with array sigma ---
     sigma_array = np.array([0.5, 1.0, 1.5])
     filtered_fast_3d_multi = fast_gaussian_filter(img3d, sigma_array, truncate)
     filtered_scipy_3d_multi = np.empty_like(img3d)
     for ch in range(img3d.shape[2]):
-        filtered_scipy_3d_multi[:, :, ch] = gaussian_filter(img3d[:, :, ch],
-                                                             sigma_array[ch],
-                                                             truncate=truncate,
-                                                             mode='reflect')
+        filtered_scipy_3d_multi[:, :, ch] = gaussian_filter(
+            img3d[:, :, ch], sigma_array[ch], truncate=truncate, mode="reflect"
+        )
     error3d_multi = np.abs(filtered_fast_3d_multi - filtered_scipy_3d_multi).max()
     print("Max error (3D, multi-sigma):", error3d_multi)
 
@@ -203,9 +215,10 @@ if __name__ == '__main__':
     t0 = time.time()
     for i in range(iterations):
         for ch in range(img3d.shape[2]):
-            gaussian_filter(img3d[:, :, ch], sigma_array[ch],
-                            truncate=truncate, mode='reflect')
+            gaussian_filter(img3d[:, :, ch], sigma_array[ch], truncate=truncate, mode="reflect")
     t_scipy_3d_multi = (time.time() - t0) / iterations
 
-    print("3D - fast_gaussian_filter time (multi-sigma): %.5f s, SciPy time: %.5f s" %
-          (t_fast_3d_multi, t_scipy_3d_multi))
+    print(
+        "3D - fast_gaussian_filter time (multi-sigma): %.5f s, SciPy time: %.5f s"
+        % (t_fast_3d_multi, t_scipy_3d_multi)
+    )

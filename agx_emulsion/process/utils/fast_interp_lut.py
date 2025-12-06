@@ -4,18 +4,25 @@ from scipy.ndimage import map_coordinates
 import time
 import matplotlib.pyplot as plt
 
+
 @njit(cache=True)
-def mitchell_weight(t, B=1/3, C=1/3):
+def mitchell_weight(t, B=1 / 3, C=1 / 3):
     """
     Computes the Mitchell–Netravali kernel weight.
     """
     x = abs(t)
     if x < 1:
-        return (1/6)*((12 - 9*B - 6*C)*x**3 + (-18 + 12*B + 6*C)*x**2 + (6 - 2*B))
+        return (1 / 6) * ((12 - 9 * B - 6 * C) * x**3 + (-18 + 12 * B + 6 * C) * x**2 + (6 - 2 * B))
     elif x < 2:
-        return (1/6)*((-B - 6*C)*x**3 + (6*B + 30*C)*x**2 + (-12*B - 48*C)*x + (8*B + 24*C))
+        return (1 / 6) * (
+            (-B - 6 * C) * x**3
+            + (6 * B + 30 * C) * x**2
+            + (-12 * B - 48 * C) * x
+            + (8 * B + 24 * C)
+        )
     else:
         return 0.0
+
 
 @njit(cache=True)
 def safe_index(idx, L):
@@ -25,9 +32,10 @@ def safe_index(idx, L):
     if idx < 0:
         return -idx
     elif idx >= L:
-        return 2*(L - 1) - idx
+        return 2 * (L - 1) - idx
     else:
         return idx
+
 
 # ---------------------------
 # 3D LUT Cubic Interpolation
@@ -83,6 +91,7 @@ def cubic_interp_lut_at_3d(lut, r, g, b):
         out[2] /= weight_sum
     return out
 
+
 @njit(parallel=True, cache=True)
 def apply_lut_cubic_3d(lut, image):
     """
@@ -101,6 +110,7 @@ def apply_lut_cubic_3d(lut, image):
             output[i, j, 1] = out_val[1]
             output[i, j, 2] = out_val[2]
     return output
+
 
 # ---------------------------
 # 2D LUT Cubic Interpolation (using x, y channels)
@@ -147,6 +157,7 @@ def cubic_interp_lut_at_2d(lut, x, y):
             out[c] /= weight_sum
     return out
 
+
 @njit(parallel=True, cache=True)
 def apply_lut_cubic_2d(lut, image):
     """
@@ -165,6 +176,7 @@ def apply_lut_cubic_2d(lut, image):
             for c in range(channels):
                 output[i, j, c] = out_val[c]
     return output
+
 
 # ---------------------------
 # SciPy Reference Implementations
@@ -185,7 +197,7 @@ def apply_lut_cubic_scipy(lut, image):
         coords[2] = image[:, :, 2] * (L - 1)
         output = np.empty((height, width, 3), dtype=np.float64)
         for c in range(3):
-            output[:, :, c] = map_coordinates(lut[..., c], coords, order=3, mode='reflect')
+            output[:, :, c] = map_coordinates(lut[..., c], coords, order=3, mode="reflect")
         return output
     elif lut.ndim == 3:  # 2D LUT case
         height, width, _ = image.shape
@@ -197,17 +209,18 @@ def apply_lut_cubic_scipy(lut, image):
         coords[1] = image[:, :, 1] * (L - 1)
         output = np.empty((height, width, channels), dtype=np.float64)
         for c in range(channels):
-            output[:, :, c] = map_coordinates(lut[..., c], coords, order=3, mode='reflect')
+            output[:, :, c] = map_coordinates(lut[..., c], coords, order=3, mode="reflect")
         return output
+
 
 # ---------------------------
 # Main Testing Block
 # ---------------------------
-if __name__ == '__main__':
+if __name__ == "__main__":
     # --- 3D LUT Example ---
     L = 32
     grid = np.linspace(0, 1, L, dtype=np.float64)
-    R, G, B = np.meshgrid(grid, grid, grid, indexing='ij')
+    R, G, B = np.meshgrid(grid, grid, grid, indexing="ij")
     # Create a 3D LUT that applies a simple non-linear transformation (r^2, g^2, b^2)
     lut_3d = np.stack((R**2, G**2, B**2), axis=-1)  # shape: (L, L, L, 3)
 
@@ -226,29 +239,39 @@ if __name__ == '__main__':
     for _ in range(iterations):
         output_numba_3d = apply_lut_cubic_3d(lut_3d, image_3d)
     numba_time_3d = (time.time() - start_time) / iterations
-    print("3D LUT - Average time per iteration (Numba cubic interpolation): {:.6f} seconds".format(numba_time_3d))
+    print(
+        "3D LUT - Average time per iteration (Numba cubic interpolation): {:.6f} seconds".format(
+            numba_time_3d
+        )
+    )
 
     start_time = time.time()
     for _ in range(iterations):
         output_scipy_3d = apply_lut_cubic_scipy(lut_3d, image_3d)
     scipy_time_3d = (time.time() - start_time) / iterations
-    print("3D LUT - Average time per iteration (SciPy cubic interpolation): {:.6f} seconds".format(scipy_time_3d))
+    print(
+        "3D LUT - Average time per iteration (SciPy cubic interpolation): {:.6f} seconds".format(
+            scipy_time_3d
+        )
+    )
 
     diff_3d = output_numba_3d - output_scipy_3d
     rmse_3d = np.sqrt(np.mean(diff_3d**2))
     max_error_3d = np.max(np.abs(diff_3d))
     print("3D LUT - RMSE error between Numba and SciPy outputs: {:.6e}".format(rmse_3d))
-    print("3D LUT - Max absolute error between Numba and SciPy outputs: {:.6e}".format(max_error_3d))
+    print(
+        "3D LUT - Max absolute error between Numba and SciPy outputs: {:.6e}".format(max_error_3d)
+    )
 
     diff_norm_3d = np.sqrt(np.sum(diff_3d**2, axis=2))
     fig, axs = plt.subplots(2, 2, figsize=(14, 12))
-    axs[0, 0].imshow(image_3d, interpolation='nearest')
+    axs[0, 0].imshow(image_3d, interpolation="nearest")
     axs[0, 0].set_title("Input Gradient Image (3D LUT)")
     axs[0, 0].axis("off")
-    axs[0, 1].imshow(output_numba_3d, interpolation='nearest')
+    axs[0, 1].imshow(output_numba_3d, interpolation="nearest")
     axs[0, 1].set_title("Output (Numba, 3D LUT)")
     axs[0, 1].axis("off")
-    axs[1, 0].imshow(output_scipy_3d, interpolation='nearest')
+    axs[1, 0].imshow(output_scipy_3d, interpolation="nearest")
     axs[1, 0].set_title("Output (SciPy, 3D LUT)")
     axs[1, 0].axis("off")
     im = axs[1, 1].imshow(diff_norm_3d, cmap="hot", interpolation="nearest")
@@ -265,7 +288,7 @@ if __name__ == '__main__':
     L = 128
     grid = np.linspace(0, 1, L, dtype=np.float64)
     lut_2d = np.empty((L, L, 2), dtype=np.float64)
-    R2, Y2 = np.meshgrid(grid, grid, indexing='ij')
+    R2, Y2 = np.meshgrid(grid, grid, indexing="ij")
     lut_2d[..., 0] = R2**2
     lut_2d[..., 1] = Y2**2
 
@@ -279,35 +302,45 @@ if __name__ == '__main__':
     for _ in range(iterations):
         output_numba_2d = apply_lut_cubic_2d(lut_2d, image_2d)
     numba_time_2d = (time.time() - start_time) / iterations
-    print("2D LUT - Average time per iteration (Numba cubic interpolation): {:.6f} seconds".format(numba_time_2d))
+    print(
+        "2D LUT - Average time per iteration (Numba cubic interpolation): {:.6f} seconds".format(
+            numba_time_2d
+        )
+    )
 
     start_time = time.time()
     for _ in range(iterations):
         output_scipy_2d = apply_lut_cubic_scipy(lut_2d, image_2d)
     scipy_time_2d = (time.time() - start_time) / iterations
-    print("2D LUT - Average time per iteration (SciPy cubic interpolation): {:.6f} seconds".format(scipy_time_2d))
+    print(
+        "2D LUT - Average time per iteration (SciPy cubic interpolation): {:.6f} seconds".format(
+            scipy_time_2d
+        )
+    )
 
     diff_2d = output_numba_2d - output_scipy_2d
     rmse_2d = np.sqrt(np.mean(diff_2d**2))
     max_error_2d = np.max(np.abs(diff_2d))
     print("2D LUT - RMSE error between Numba and SciPy outputs: {:.6e}".format(rmse_2d))
-    print("2D LUT - Max absolute error between Numba and SciPy outputs: {:.6e}".format(max_error_2d))
+    print(
+        "2D LUT - Max absolute error between Numba and SciPy outputs: {:.6e}".format(max_error_2d)
+    )
 
     diff_norm_2d = np.sqrt(np.sum(diff_2d**2, axis=2))
-    
+
     # For plotting, combine the two channels into one grayscale image (by taking the mean)
     image_2d_gray = np.mean(image_2d, axis=-1)
     output_numba_2d_gray = np.mean(output_numba_2d, axis=-1)
     output_scipy_2d_gray = np.mean(output_scipy_2d, axis=-1)
-    
+
     fig, axs = plt.subplots(2, 2, figsize=(14, 12))
-    axs[0, 0].imshow(image_2d_gray, interpolation='nearest', cmap='gray')
+    axs[0, 0].imshow(image_2d_gray, interpolation="nearest", cmap="gray")
     axs[0, 0].set_title("Input Gradient Image (2D LUT, Mean)")
     axs[0, 0].axis("off")
-    axs[0, 1].imshow(output_numba_2d_gray, interpolation='nearest', cmap='gray')
+    axs[0, 1].imshow(output_numba_2d_gray, interpolation="nearest", cmap="gray")
     axs[0, 1].set_title("Output (Numba, 2D LUT, Mean)")
     axs[0, 1].axis("off")
-    axs[1, 0].imshow(output_scipy_2d_gray, interpolation='nearest', cmap='gray')
+    axs[1, 0].imshow(output_scipy_2d_gray, interpolation="nearest", cmap="gray")
     axs[1, 0].set_title("Output (SciPy, 2D LUT, Mean)")
     axs[1, 0].axis("off")
     im = axs[1, 1].imshow(diff_norm_2d, cmap="hot", interpolation="nearest")

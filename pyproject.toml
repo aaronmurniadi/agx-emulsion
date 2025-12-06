@@ -27,6 +27,7 @@ dependencies = [
     "OpenImageIO~=3.0.3.1",
     "pyfftw~=0.15.0",
     "magic-class",
+    "ruff>=0.14.8",
 ]
 
 [project.scripts]

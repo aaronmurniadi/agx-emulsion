@@ -16,7 +16,7 @@ from napari.qt.threading import thread_worker
 
 from agx_emulsion.process.config import ENLARGER_STEPS
 from agx_emulsion.process.utils.io import load_image_oiio
-from agx_emulsion.process.core.process import  photo_params, photo_process
+from agx_emulsion.process.core.process import photo_params, photo_process
 from agx_emulsion.process.physics.stocks import FilmStocks, PrintPapers, Illuminants
 from agx_emulsion.process.profiles.factory import swap_channels
 from agx_emulsion.process.utils.numba_warmup import warmup
@@ -24,26 +24,31 @@ from agx_emulsion.process.utils.numba_warmup import warmup
 # precompile numba functions
 warmup()
 
+
 class RGBColorSpaces(Enum):
-    sRGB = 'sRGB'
-    DCI_P3 = 'DCI-P3'
-    DisplayP3 = 'Display P3'
-    AdobeRGB = 'Adobe RGB (1998)'
-    ITU_R_BT2020 = 'ITU-R BT.2020'
-    ProPhotoRGB = 'ProPhoto RGB'
-    ACES2065_1 = 'ACES2065-1'
+    sRGB = "sRGB"
+    DCI_P3 = "DCI-P3"
+    DisplayP3 = "Display P3"
+    AdobeRGB = "Adobe RGB (1998)"
+    ITU_R_BT2020 = "ITU-R BT.2020"
+    ProPhotoRGB = "ProPhoto RGB"
+    ACES2065_1 = "ACES2065-1"
+
 
 class RGBtoRAWMethod(Enum):
-    hanatos2025 = 'hanatos2025'
-    mallett2019 = 'mallett2019'
+    hanatos2025 = "hanatos2025"
+    mallett2019 = "mallett2019"
+
 
 class AutoExposureMethods(Enum):
-    median = 'median'
-    center_weighted = 'center_weighted'
+    median = "median"
+    center_weighted = "center_weighted"
+
 
 class WorkerSignals(QObject):
     progress = Signal(str, int, int)
     node_complete = Signal(str, object)  # node_name, output_image
+
 
 @magicclass(widget_type="scrollable")
 class AgXEmulsionConfiguration:
@@ -53,17 +58,19 @@ class AgXEmulsionConfiguration:
     @magicclass(name="Input Image", layout="horizontal")
     class Input:
         filename = field(Path("./"), label="File", options={"mode": "r"})
-        
+
         def __post_init__(self):
             """Connect filename field change to auto-load image after widget creation."""
             # Connect the changed signal to auto-load image
             # Use QTimer to ensure widget is fully created
             from qtpy.QtCore import QTimer
+
             def connect_signal():
-                if hasattr(self.filename, 'changed'):
+                if hasattr(self.filename, "changed"):
                     self.filename.changed.connect(self._load_image)
+
             QTimer.singleShot(10, connect_signal)
-        
+
         def _load_image(self):
             """Load the image from the specified file."""
             if not self.filename.value.exists() or self.filename.value.is_dir():
@@ -83,97 +90,416 @@ class AgXEmulsionConfiguration:
             """Run the simulation."""
             self.__magicclass_parent__._run_simulation(full_image=self.compute_full_image)
 
-        compute_full_image = vfield(False, label="Compute Full Image", options={"tooltip": "Do not apply preview resize, compute full resolution image. Keeps the crop if active."})
+        compute_full_image = vfield(
+            False,
+            label="Compute Full Image",
+            options={
+                "tooltip": "Do not apply preview resize, compute full resolution image. Keeps the crop if active."
+            },
+        )
 
     @magicclass(widget_type="tabbed", labels=False)
     class Settings:
-
         @magicclass(name="Film", widget_type="scrollable")
         class Film:
-            film_stock = vfield(FilmStocks.kodak_vision3_500t, label="Film Stock", options={"tooltip": "Film stock to simulate"})
-            film_format_mm = vfield(35.0, label="Format (mm)", options={"tooltip": "Long edge of the film format in millimeters, e.g. 35mm or 60mm"})
-            camera_lens_blur_um = vfield(0.0, label="Lens Blur (um)", options={"tooltip": "Sigma of gaussian filter in um for the camera lens blur. About 5 um for typical lenses, down to 2-4 um for high quality lenses, used for sharp input simulations without lens blur."})
-            exposure_compensation_ev = vfield(0.0, label="Exposure Comp (EV)", options={"min": -100, "max": 100, "step": 0.5, "tooltip": "Exposure compensation value in ev of the negative"})
-            auto_exposure = vfield(False, label="Auto Exposure", options={"tooltip": "Automatically adjust exposure based on the image content"})
-            auto_exposure_method = vfield(AutoExposureMethods.center_weighted, label="Auto Exposure Method")
-            
+            film_stock = vfield(
+                FilmStocks.kodak_vision3_500t,
+                label="Film Stock",
+                options={"tooltip": "Film stock to simulate"},
+            )
+            film_format_mm = vfield(
+                35.0,
+                label="Format (mm)",
+                options={
+                    "tooltip": "Long edge of the film format in millimeters, e.g. 35mm or 60mm"
+                },
+            )
+            camera_lens_blur_um = vfield(
+                0.0,
+                label="Lens Blur (um)",
+                options={
+                    "tooltip": "Sigma of gaussian filter in um for the camera lens blur. About 5 um for typical lenses, down to 2-4 um for high quality lenses, used for sharp input simulations without lens blur."
+                },
+            )
+            exposure_compensation_ev = vfield(
+                0.0,
+                label="Exposure Comp (EV)",
+                options={
+                    "min": -100,
+                    "max": 100,
+                    "step": 0.5,
+                    "tooltip": "Exposure compensation value in ev of the negative",
+                },
+            )
+            auto_exposure = vfield(
+                False,
+                label="Auto Exposure",
+                options={"tooltip": "Automatically adjust exposure based on the image content"},
+            )
+            auto_exposure_method = vfield(
+                AutoExposureMethods.center_weighted, label="Auto Exposure Method"
+            )
+
             grain_label = Label(value="\n[Grain]")
             sublayers_active = vfield(True, label="Sublayers Active")
-            particle_area_um2 = vfield(0.1, label="Particle Area (um2)", options={"step": 0.1, "tooltip": "Area of the particles in um2, relates to ISO. Approximately 0.1 for ISO 100, 0.1 for ISO 200, 0.4 for ISO 400 and so on."})
-            particle_scale = vfield((0.8, 1.0, 2), label="Particle Scale", options={"tooltip": "Scale of particle area for the RGB layers, multiplies particle_area_um2"})
-            particle_scale_layers = vfield((2.5, 1.0, 0.5), label="Particle Scale Layers", options={"tooltip": "Scale of particle area for the sublayers in every color layer, multiplies particle_area_um2"})
-            density_min = vfield((0.07, 0.08, 0.12), label="Density Min", options={"tooltip": "Minimum density of the grain, typical values (0.03-0.06)"})
-            uniformity = vfield((0.97, 0.97, 0.99), label="Uniformity", options={"tooltip": "Uniformity of the grain, typical values (0.94-0.98)"})
-            blur = vfield(0.65, label="Blur", options={"tooltip": "Sigma of gaussian blur in pixels for the grain, to be increased at high magnifications, (should be 0.8-0.9 at high resolution, reduce down to 0.6 for lower res)."})
-            blur_dye_clouds_um = vfield(1.0, label="Blur Dye Clouds (um)", options={"tooltip": "Scale the sigma of gaussian blur in um for the dye clouds, to be used at high magnifications, (default 1)"})
-            micro_structure = vfield((0.1, 30), label="Micro Structure", options={"tooltip": "Parameter for micro-structure due to clumps at the molecular level, [sigma blur of micro-structure / ultimate light-resolution (0.10 um default), size of molecular clumps in nm (30 nm default)]. Only for insane magnifications."})
-                    
+            particle_area_um2 = vfield(
+                0.1,
+                label="Particle Area (um2)",
+                options={
+                    "step": 0.1,
+                    "tooltip": "Area of the particles in um2, relates to ISO. Approximately 0.1 for ISO 100, 0.1 for ISO 200, 0.4 for ISO 400 and so on.",
+                },
+            )
+            particle_scale = vfield(
+                (0.8, 1.0, 2),
+                label="Particle Scale",
+                options={
+                    "tooltip": "Scale of particle area for the RGB layers, multiplies particle_area_um2"
+                },
+            )
+            particle_scale_layers = vfield(
+                (2.5, 1.0, 0.5),
+                label="Particle Scale Layers",
+                options={
+                    "tooltip": "Scale of particle area for the sublayers in every color layer, multiplies particle_area_um2"
+                },
+            )
+            density_min = vfield(
+                (0.07, 0.08, 0.12),
+                label="Density Min",
+                options={"tooltip": "Minimum density of the grain, typical values (0.03-0.06)"},
+            )
+            uniformity = vfield(
+                (0.97, 0.97, 0.99),
+                label="Uniformity",
+                options={"tooltip": "Uniformity of the grain, typical values (0.94-0.98)"},
+            )
+            blur = vfield(
+                0.65,
+                label="Blur",
+                options={
+                    "tooltip": "Sigma of gaussian blur in pixels for the grain, to be increased at high magnifications, (should be 0.8-0.9 at high resolution, reduce down to 0.6 for lower res)."
+                },
+            )
+            blur_dye_clouds_um = vfield(
+                1.0,
+                label="Blur Dye Clouds (um)",
+                options={
+                    "tooltip": "Scale the sigma of gaussian blur in um for the dye clouds, to be used at high magnifications, (default 1)"
+                },
+            )
+            micro_structure = vfield(
+                (0.1, 30),
+                label="Micro Structure",
+                options={
+                    "tooltip": "Parameter for micro-structure due to clumps at the molecular level, [sigma blur of micro-structure / ultimate light-resolution (0.10 um default), size of molecular clumps in nm (30 nm default)]. Only for insane magnifications."
+                },
+            )
+
             halation_label = Label(value="\n[Halation]")
-            scattering_strength = vfield((1.0, 2.0, 4.0), label="Scattering Strength", options={"tooltip": "Fraction of scattered light (0-100, percentage) for each channel [R,G,B]"})
-            scattering_size_um = vfield((30, 20, 15), label="Scattering Size (um)", options={"tooltip": "Size of the scattering effect in micrometers for each channel [R,G,B], sigma of gaussian filter."})
-            halation_strength = vfield((10.0, 7.30, 7.1), label="Halation Strength", options={"tooltip": "Fraction of halation light (0-100, percentage) for each channel [R,G,B]"})
-            halation_size_um = vfield((200, 200, 200), label="Halation Size (um)", options={"tooltip": "Size of the halation effect in micrometers for each channel [R,G,B], sigma of gaussian filter."})
+            scattering_strength = vfield(
+                (1.0, 2.0, 4.0),
+                label="Scattering Strength",
+                options={
+                    "tooltip": "Fraction of scattered light (0-100, percentage) for each channel [R,G,B]"
+                },
+            )
+            scattering_size_um = vfield(
+                (30, 20, 15),
+                label="Scattering Size (um)",
+                options={
+                    "tooltip": "Size of the scattering effect in micrometers for each channel [R,G,B], sigma of gaussian filter."
+                },
+            )
+            halation_strength = vfield(
+                (10.0, 7.30, 7.1),
+                label="Halation Strength",
+                options={
+                    "tooltip": "Fraction of halation light (0-100, percentage) for each channel [R,G,B]"
+                },
+            )
+            halation_size_um = vfield(
+                (200, 200, 200),
+                label="Halation Size (um)",
+                options={
+                    "tooltip": "Size of the halation effect in micrometers for each channel [R,G,B], sigma of gaussian filter."
+                },
+            )
 
             couplers_label = Label(value="\n[Couplers]")
             active = vfield(True, label="Active")
-            dir_couplers_amount = vfield(1.0, label="Amount", options={"step": 0.05, "tooltip": "Amount of coupler inhibitors, control saturation, typical values (0.8-1.2)."})
+            dir_couplers_amount = vfield(
+                1.0,
+                label="Amount",
+                options={
+                    "step": 0.05,
+                    "tooltip": "Amount of coupler inhibitors, control saturation, typical values (0.8-1.2).",
+                },
+            )
             dir_couplers_ratio = vfield((1.0, 1.0, 1.0), label="Ratio")
-            dir_couplers_diffusion_um = vfield(10, label="Diffusion (um)", options={"step": 5, "tooltip": "Sigma in um for the diffusion of the couplers, (5-20 um), controls sharpness and affects saturation."})
-            diffusion_interlayer = vfield(2.0, label="Diffusion Interlayer", options={"tooltip": "Sigma in number of layers for diffusion across the rgb layers (typical layer thickness 3-5 um, so roughly 1.0-4.0 layers), affects saturation."})
+            dir_couplers_diffusion_um = vfield(
+                10,
+                label="Diffusion (um)",
+                options={
+                    "step": 5,
+                    "tooltip": "Sigma in um for the diffusion of the couplers, (5-20 um), controls sharpness and affects saturation.",
+                },
+            )
+            diffusion_interlayer = vfield(
+                2.0,
+                label="Diffusion Interlayer",
+                options={
+                    "tooltip": "Sigma in number of layers for diffusion across the rgb layers (typical layer thickness 3-5 um, so roughly 1.0-4.0 layers), affects saturation."
+                },
+            )
             high_exposure_shift = vfield(0.0, label="High Exposure Shift")
 
         @magicclass(name="Print", widget_type="scrollable")
         class Print:
-            print_paper = vfield(PrintPapers.kodak_supra_endura, label="Print Paper", options={"tooltip": "Print paper to simulate"})
-            print_illuminant = vfield(Illuminants.lamp, label="Illuminant", options={"tooltip": "Print illuminant to simulate"})
-            print_exposure = vfield(1.0, label="Exposure", options={"step": 0.05, "tooltip": "Exposure value for the print (proportional to seconds of exposure, not ev)"})
-            print_exposure_compensation = vfield(False, label="Exposure Comp", options={"tooltip": "Apply exposure compensation from negative exposure compensation ev, allow for changing of the negative exposure compensation while keeping constant print time."})
-            print_y_filter_shift = vfield(0, label="Y Filter Shift", options={"min": -ENLARGER_STEPS, "max": ENLARGER_STEPS, "tooltip": "Y filter shift of the color enlarger from a neutral position, enlarger has 170 steps"})
-            print_m_filter_shift = vfield(0, label="M Filter Shift", options={"min": -ENLARGER_STEPS, "max": ENLARGER_STEPS, "tooltip": "M filter shift of the color enlarger from a neutral position, enlarger has 170 steps"})
+            print_paper = vfield(
+                PrintPapers.kodak_supra_endura,
+                label="Print Paper",
+                options={"tooltip": "Print paper to simulate"},
+            )
+            print_illuminant = vfield(
+                Illuminants.lamp,
+                label="Illuminant",
+                options={"tooltip": "Print illuminant to simulate"},
+            )
+            print_exposure = vfield(
+                1.0,
+                label="Exposure",
+                options={
+                    "step": 0.05,
+                    "tooltip": "Exposure value for the print (proportional to seconds of exposure, not ev)",
+                },
+            )
+            print_exposure_compensation = vfield(
+                False,
+                label="Exposure Comp",
+                options={
+                    "tooltip": "Apply exposure compensation from negative exposure compensation ev, allow for changing of the negative exposure compensation while keeping constant print time."
+                },
+            )
+            print_y_filter_shift = vfield(
+                0,
+                label="Y Filter Shift",
+                options={
+                    "min": -ENLARGER_STEPS,
+                    "max": ENLARGER_STEPS,
+                    "tooltip": "Y filter shift of the color enlarger from a neutral position, enlarger has 170 steps",
+                },
+            )
+            print_m_filter_shift = vfield(
+                0,
+                label="M Filter Shift",
+                options={
+                    "min": -ENLARGER_STEPS,
+                    "max": ENLARGER_STEPS,
+                    "tooltip": "M filter shift of the color enlarger from a neutral position, enlarger has 170 steps",
+                },
+            )
 
             preflashing_label = Label(value="\n[Preflashing]")
-            preflash_exposure = vfield(0.0, label="Exposure", options={"step": 0.005, "tooltip": "Preflash exposure value in ev for the print"})
-            preflash_y_filter_shift = vfield(0, label="Y Filter Shift", options={"min": -ENLARGER_STEPS, "tooltip": "Shift the Y filter of the enlarger from the neutral position for the preflash, typical values (-20-20), enlarger has 170 steps"})
-            preflash_m_filter_shift = vfield(0, label="M Filter Shift", options={"min": -ENLARGER_STEPS, "tooltip": "Shift the M filter of the enlarger from the neutral position for the preflash, typical values (-20-20), enlarger has 170 steps"})
-            just_preflash = vfield(False, label="Just Preflash", options={"tooltip": "Only apply preflash to the print, to visualize the preflash effect"})
+            preflash_exposure = vfield(
+                0.0,
+                label="Exposure",
+                options={"step": 0.005, "tooltip": "Preflash exposure value in ev for the print"},
+            )
+            preflash_y_filter_shift = vfield(
+                0,
+                label="Y Filter Shift",
+                options={
+                    "min": -ENLARGER_STEPS,
+                    "tooltip": "Shift the Y filter of the enlarger from the neutral position for the preflash, typical values (-20-20), enlarger has 170 steps",
+                },
+            )
+            preflash_m_filter_shift = vfield(
+                0,
+                label="M Filter Shift",
+                options={
+                    "min": -ENLARGER_STEPS,
+                    "tooltip": "Shift the M filter of the enlarger from the neutral position for the preflash, typical values (-20-20), enlarger has 170 steps",
+                },
+            )
+            just_preflash = vfield(
+                False,
+                label="Just Preflash",
+                options={
+                    "tooltip": "Only apply preflash to the print, to visualize the preflash effect"
+                },
+            )
 
             glare_label = Label(value="\n[Glare]")
             active = vfield(True, label="Active", options={"tooltip": "Add glare to the print"})
-            percent = vfield(0.10, label="Percent", options={"step": 0.05, "tooltip": "Percentage of the glare light (typically 0.1-0.25)"})
-            roughness = vfield(0.4, label="Roughness", options={"tooltip": "Roughness of the glare light (0-1)"})
-            blur = vfield(0.5, label="Blur", options={"tooltip": "Sigma of gaussian blur in pixels for the glare"})
-            compensation_removal_factor = vfield(0.0, label="Comp Removal Factor", options={"step": 0.05, "tooltip": "Factor of glare compensation removal from the print, e.g. 0.2=20% underexposed print in the shadows, typical values (0.0-0.2). To be used instead of stochastic glare (i.e. when percent=0)."})
-            compensation_removal_density = vfield(1.2, label="Comp Removal Density", options={"tooltip": "Density of the glare compensation removal from the print, typical values (1.0-1.5)."})
-            compensation_removal_transition = vfield(0.3, label="Comp Removal Transition", options={"tooltip": "Transition density range of the glare compensation removal from the print, typical values (0.1-0.5)."})
+            percent = vfield(
+                0.10,
+                label="Percent",
+                options={
+                    "step": 0.05,
+                    "tooltip": "Percentage of the glare light (typically 0.1-0.25)",
+                },
+            )
+            roughness = vfield(
+                0.4, label="Roughness", options={"tooltip": "Roughness of the glare light (0-1)"}
+            )
+            blur = vfield(
+                0.5,
+                label="Blur",
+                options={"tooltip": "Sigma of gaussian blur in pixels for the glare"},
+            )
+            compensation_removal_factor = vfield(
+                0.0,
+                label="Comp Removal Factor",
+                options={
+                    "step": 0.05,
+                    "tooltip": "Factor of glare compensation removal from the print, e.g. 0.2=20% underexposed print in the shadows, typical values (0.0-0.2). To be used instead of stochastic glare (i.e. when percent=0).",
+                },
+            )
+            compensation_removal_density = vfield(
+                1.2,
+                label="Comp Removal Density",
+                options={
+                    "tooltip": "Density of the glare compensation removal from the print, typical values (1.0-1.5)."
+                },
+            )
+            compensation_removal_transition = vfield(
+                0.3,
+                label="Comp Removal Transition",
+                options={
+                    "tooltip": "Transition density range of the glare compensation removal from the print, typical values (0.1-0.5)."
+                },
+            )
 
         @magicclass(name="Scanner", widget_type="scrollable")
         class Scanner:
-            scan_lens_blur = vfield(0.00, label="Lens Blur", options={"step": 0.05, "tooltip": "Sigma of gaussian filter in pixel for the scanner lens blur"})
-            scan_unsharp_mask = vfield((0.7, 0.7), label="Unsharp Mask", options={"tooltip": "Apply unsharp mask to the scan, [sigma in pixel, amount]"})
-            output_color_space = vfield(RGBColorSpaces.sRGB, label="Output Color Space", options={"tooltip": "Color space of the output image"})
-            output_cctf_encoding = vfield(True, label="Output CCTF Encoding", options={"tooltip": "Apply the cctf transfer function of the color space. If false, data is linear."})
-            compute_negative = vfield(False, label="Compute Negative", options={"tooltip": "Show a scan of the negative instead of the print"})
+            scan_lens_blur = vfield(
+                0.00,
+                label="Lens Blur",
+                options={
+                    "step": 0.05,
+                    "tooltip": "Sigma of gaussian filter in pixel for the scanner lens blur",
+                },
+            )
+            scan_unsharp_mask = vfield(
+                (0.7, 0.7),
+                label="Unsharp Mask",
+                options={"tooltip": "Apply unsharp mask to the scan, [sigma in pixel, amount]"},
+            )
+            output_color_space = vfield(
+                RGBColorSpaces.sRGB,
+                label="Output Color Space",
+                options={"tooltip": "Color space of the output image"},
+            )
+            output_cctf_encoding = vfield(
+                True,
+                label="Output CCTF Encoding",
+                options={
+                    "tooltip": "Apply the cctf transfer function of the color space. If false, data is linear."
+                },
+            )
+            compute_negative = vfield(
+                False,
+                label="Compute Negative",
+                options={"tooltip": "Show a scan of the negative instead of the print"},
+            )
 
         @magicclass(name="Advanced", widget_type="scrollable")
         class Advanced:
             film_channel_swap = vfield((0, 1, 2), label="Film Channel Swap")
-            film_gamma_factor = vfield(1.0, label="Film Gamma Factor", options={"tooltip": "Gamma factor of the density curves of the negative, < 1 reduce contrast, > 1 increase contrast"})
+            film_gamma_factor = vfield(
+                1.0,
+                label="Film Gamma Factor",
+                options={
+                    "tooltip": "Gamma factor of the density curves of the negative, < 1 reduce contrast, > 1 increase contrast"
+                },
+            )
             print_channel_swap = vfield((0, 1, 2), label="Print Channel Swap")
-            print_gamma_factor = vfield(1.0, label="Print Gamma Factor", options={"step": 0.05, "tooltip": "Gamma factor of the print paper, < 1 reduce contrast, > 1 increase contrast"})
-            print_density_min_factor = vfield(0.4, label="Print Density Min Factor", options={"min": 0, "max": 1, "step": 0.2, "tooltip": "Minimum density factor of the print paper (0-1), make the white less white"})
+            print_gamma_factor = vfield(
+                1.0,
+                label="Print Gamma Factor",
+                options={
+                    "step": 0.05,
+                    "tooltip": "Gamma factor of the print paper, < 1 reduce contrast, > 1 increase contrast",
+                },
+            )
+            print_density_min_factor = vfield(
+                0.4,
+                label="Print Density Min Factor",
+                options={
+                    "min": 0,
+                    "max": 1,
+                    "step": 0.2,
+                    "tooltip": "Minimum density factor of the print paper (0-1), make the white less white",
+                },
+            )
 
         @magicclass(name="Misc.", widget_type="scrollable")
         class Misc:
-            preview_resize_factor = vfield(0.3, label="Preview Resize", options={"tooltip": "Scale image size down (0-1) to speed up preview processing"})
-            upscale_factor = vfield(1.0, label="Upscale Factor", options={"tooltip": "Scale image size up to increase resolution"})
-            crop = vfield(False, label="Crop", options={"tooltip": "Crop image to a fraction of the original size to preview details at full scale"})
-            crop_center = vfield((0.50, 0.50), label="Crop Center", options={"tooltip": "Center of the crop region in relative coordinates in x, y (0-1)"})
-            crop_size = vfield((0.1, 0.1), label="Crop Size", options={"tooltip": "Normalized size of the crop region in x, y (0,1), as fraction of the long side."})
-            input_color_space = vfield(RGBColorSpaces.ProPhotoRGB, label="Color Space", options={"tooltip": "Color space of the input image, will be internally converted to sRGB and negative values clipped"})
-            apply_cctf_decoding = vfield(False, label="Apply CCTF Decoding", options={"tooltip": "Apply the inverse cctf transfer function of the color space"})
-            spectral_upsampling_method = vfield(RGBtoRAWMethod.hanatos2025, label="Spectral Upsampling", options={"tooltip": "Method to upsample the spectral resolution of the image, hanatos2025 works on the full visible locus, mallett2019 works only on sRGB (will clip input)."})
-            filter_uv = vfield((1, 410, 8), label="Filter UV", options={"tooltip": "Filter UV light, (amplitude, wavelength cutoff in nm, sigma in nm). It mainly helps for avoiding UV light ruining the reds. Changing this enlarger filters neutral will be affected."})
-            filter_ir = vfield((1, 675, 15), label="Filter IR", options={"tooltip": "Filter IR light, (amplitude, wavelength cutoff in nm, sigma in nm). Changing this enlarger filters neutral will be affected."})
+            preview_resize_factor = vfield(
+                0.3,
+                label="Preview Resize",
+                options={"tooltip": "Scale image size down (0-1) to speed up preview processing"},
+            )
+            upscale_factor = vfield(
+                1.0,
+                label="Upscale Factor",
+                options={"tooltip": "Scale image size up to increase resolution"},
+            )
+            crop = vfield(
+                False,
+                label="Crop",
+                options={
+                    "tooltip": "Crop image to a fraction of the original size to preview details at full scale"
+                },
+            )
+            crop_center = vfield(
+                (0.50, 0.50),
+                label="Crop Center",
+                options={
+                    "tooltip": "Center of the crop region in relative coordinates in x, y (0-1)"
+                },
+            )
+            crop_size = vfield(
+                (0.1, 0.1),
+                label="Crop Size",
+                options={
+                    "tooltip": "Normalized size of the crop region in x, y (0,1), as fraction of the long side."
+                },
+            )
+            input_color_space = vfield(
+                RGBColorSpaces.ProPhotoRGB,
+                label="Color Space",
+                options={
+                    "tooltip": "Color space of the input image, will be internally converted to sRGB and negative values clipped"
+                },
+            )
+            apply_cctf_decoding = vfield(
+                False,
+                label="Apply CCTF Decoding",
+                options={"tooltip": "Apply the inverse cctf transfer function of the color space"},
+            )
+            spectral_upsampling_method = vfield(
+                RGBtoRAWMethod.hanatos2025,
+                label="Spectral Upsampling",
+                options={
+                    "tooltip": "Method to upsample the spectral resolution of the image, hanatos2025 works on the full visible locus, mallett2019 works only on sRGB (will clip input)."
+                },
+            )
+            filter_uv = vfield(
+                (1, 410, 8),
+                label="Filter UV",
+                options={
+                    "tooltip": "Filter UV light, (amplitude, wavelength cutoff in nm, sigma in nm). It mainly helps for avoiding UV light ruining the reds. Changing this enlarger filters neutral will be affected."
+                },
+            )
+            filter_ir = vfield(
+                (1, 675, 15),
+                label="Filter IR",
+                options={
+                    "tooltip": "Filter IR light, (amplitude, wavelength cutoff in nm, sigma in nm). Changing this enlarger filters neutral will be affected."
+                },
+            )
 
     def _run_simulation(self, full_image=False):
         input_layer = None
@@ -182,32 +508,46 @@ class AgXEmulsionConfiguration:
                 if isinstance(layer, Image):
                     input_layer = layer
                     break
-        
+
         if input_layer is None:
             print("No image layer found.")
             return
 
         # Gather parameters
-        params = photo_params(self.Settings.Film.film_stock.value, self.Settings.Print.print_paper.value)
-        
+        params = photo_params(
+            self.Settings.Film.film_stock.value, self.Settings.Print.print_paper.value
+        )
+
         # Special
         if self.Settings.Advanced.film_channel_swap != (0, 1, 2):
-            params.negative = swap_channels(params.negative, self.Settings.Advanced.film_channel_swap)
+            params.negative = swap_channels(
+                params.negative, self.Settings.Advanced.film_channel_swap
+            )
         if self.Settings.Advanced.print_channel_swap != (0, 1, 2):
-            params.print_paper = swap_channels(params.print_paper, self.Settings.Advanced.print_channel_swap)
-        
+            params.print_paper = swap_channels(
+                params.print_paper, self.Settings.Advanced.print_channel_swap
+            )
+
         params.negative.data.tune.gamma_factor = self.Settings.Advanced.film_gamma_factor
         params.print_paper.data.tune.gamma_factor = self.Settings.Advanced.print_gamma_factor
-        params.print_paper.data.tune.dye_density_min_factor = self.Settings.Advanced.print_density_min_factor
-        
+        params.print_paper.data.tune.dye_density_min_factor = (
+            self.Settings.Advanced.print_density_min_factor
+        )
+
         # Glare
         params.print_paper.glare.active = self.Settings.Print.active
         params.print_paper.glare.percent = self.Settings.Print.percent
         params.print_paper.glare.roughness = self.Settings.Print.roughness
         params.print_paper.glare.blur = self.Settings.Print.blur
-        params.print_paper.glare.compensation_removal_factor = self.Settings.Print.compensation_removal_factor
-        params.print_paper.glare.compensation_removal_density = self.Settings.Print.compensation_removal_density
-        params.print_paper.glare.compensation_removal_transition = self.Settings.Print.compensation_removal_transition
+        params.print_paper.glare.compensation_removal_factor = (
+            self.Settings.Print.compensation_removal_factor
+        )
+        params.print_paper.glare.compensation_removal_density = (
+            self.Settings.Print.compensation_removal_density
+        )
+        params.print_paper.glare.compensation_removal_transition = (
+            self.Settings.Print.compensation_removal_transition
+        )
 
         # Camera
         params.camera.lens_blur_um = self.Settings.Film.camera_lens_blur_um
@@ -217,7 +557,7 @@ class AgXEmulsionConfiguration:
         params.camera.film_format_mm = self.Settings.Film.film_format_mm
         params.camera.filter_uv = self.Settings.Misc.filter_uv
         params.camera.filter_ir = self.Settings.Misc.filter_ir
-        
+
         # IO
         params.io.preview_resize_factor = self.Settings.Misc.preview_resize_factor
         params.io.upscale_factor = self.Settings.Misc.upscale_factor
@@ -230,14 +570,18 @@ class AgXEmulsionConfiguration:
         params.io.output_cctf_encoding = self.Settings.Scanner.output_cctf_encoding
         params.io.full_image = full_image
         params.io.compute_negative = self.Settings.Scanner.compute_negative
-        
+
         # Halation
         params.negative.halation.active = self.Settings.Film.active
-        params.negative.halation.strength = np.array(self.Settings.Film.halation_strength)/100
+        params.negative.halation.strength = np.array(self.Settings.Film.halation_strength) / 100
         params.negative.halation.size_um = np.array(self.Settings.Film.halation_size_um)
-        params.negative.halation.scattering_strength = np.array(self.Settings.Film.scattering_strength)/100
-        params.negative.halation.scattering_size_um = np.array(self.Settings.Film.scattering_size_um)
-        
+        params.negative.halation.scattering_strength = (
+            np.array(self.Settings.Film.scattering_strength) / 100
+        )
+        params.negative.halation.scattering_size_um = np.array(
+            self.Settings.Film.scattering_size_um
+        )
+
         # Grain
         params.negative.grain.active = self.Settings.Film.active
         params.negative.grain.sublayers_active = self.Settings.Film.sublayers_active
@@ -249,30 +593,34 @@ class AgXEmulsionConfiguration:
         params.negative.grain.blur = self.Settings.Film.blur
         params.negative.grain.blur_dye_clouds_um = self.Settings.Film.blur_dye_clouds_um
         params.negative.grain.micro_structure = self.Settings.Film.micro_structure
-        
+
         # Couplers
         params.negative.dir_couplers.active = self.Settings.Film.active
-        params.negative.dir_couplers.amount = self.Settings.Film.dir_couplers_amount 
+        params.negative.dir_couplers.amount = self.Settings.Film.dir_couplers_amount
         params.negative.dir_couplers.ratio_rgb = self.Settings.Film.dir_couplers_ratio
-        params.negative.dir_couplers.diffusion_size_um = self.Settings.Film.dir_couplers_diffusion_um
+        params.negative.dir_couplers.diffusion_size_um = (
+            self.Settings.Film.dir_couplers_diffusion_um
+        )
         params.negative.dir_couplers.diffusion_interlayer = self.Settings.Film.diffusion_interlayer
         params.negative.dir_couplers.high_exposure_shift = self.Settings.Film.high_exposure_shift
-        
+
         # Enlarger
         params.enlarger.illuminant = self.Settings.Print.print_illuminant.value
         params.enlarger.print_exposure = self.Settings.Print.print_exposure
-        params.enlarger.print_exposure_compensation = self.Settings.Print.print_exposure_compensation
+        params.enlarger.print_exposure_compensation = (
+            self.Settings.Print.print_exposure_compensation
+        )
         params.enlarger.y_filter_shift = self.Settings.Print.print_y_filter_shift
         params.enlarger.m_filter_shift = self.Settings.Print.print_m_filter_shift
         params.enlarger.preflash_exposure = self.Settings.Print.preflash_exposure
         params.enlarger.preflash_y_filter_shift = self.Settings.Print.preflash_y_filter_shift
         params.enlarger.preflash_m_filter_shift = self.Settings.Print.preflash_m_filter_shift
         params.enlarger.just_preflash = self.Settings.Print.just_preflash
-        
+
         # Scanner
         params.scanner.lens_blur = self.Settings.Scanner.scan_lens_blur
         params.scanner.unsharp_mask = self.Settings.Scanner.scan_unsharp_mask
-        
+
         # Settings
         params.settings.rgb_to_raw_method = self.Settings.Misc.spectral_upsampling_method.value
         params.settings.use_camera_lut = False
@@ -281,19 +629,19 @@ class AgXEmulsionConfiguration:
         params.settings.lut_resolution = 32
         params.settings.use_fast_stats = True
 
-        image = np.double(input_layer.data[:,:,:3])
-        
+        image = np.double(input_layer.data[:, :, :3])
+
         # Create signals and progress bar
         self.signals = WorkerSignals()
         pbr = progress(total=0)
-        
+
         def on_progress(name, step, total):
             pbr.total = total
             pbr.set_description(f"Running: {name}")
             pbr.update(1)
-            
+
         self.signals.progress.connect(on_progress)
-        
+
         def on_node_complete(node_name, output_image):
             """Update Simulation Result layer when a node completes."""
             if self._viewer and output_image is not None:
@@ -304,21 +652,26 @@ class AgXEmulsionConfiguration:
                     self._viewer.layers[layer_name].data = display_image
                 else:
                     self._viewer.add_image(display_image, name=layer_name)
-        
+
         self.signals.node_complete.connect(on_node_complete)
-        
+
         def on_finished(scan):
             pbr.close()
             self._on_process_finished(scan)
             if self._viewer:
                 self._viewer.reset_view()
-            
+
         def on_error(e):
             pbr.close()
             print(f"Error during simulation: {e}")
 
         # Run async
-        worker = self._process_image(image, params, progress_signal=self.signals.progress, node_complete_signal=self.signals.node_complete)
+        worker = self._process_image(
+            image,
+            params,
+            progress_signal=self.signals.progress,
+            node_complete_signal=self.signals.node_complete,
+        )
         worker.returned.connect(on_finished)
         worker.errored.connect(on_error)
         worker.start()
@@ -327,12 +680,12 @@ class AgXEmulsionConfiguration:
     def _process_image(self, image, params, progress_signal, node_complete_signal):
         def cb(name, step, total):
             progress_signal.emit(name, step, total)
-        
+
         def node_cb(node_name, output_image):
             node_complete_signal.emit(node_name, output_image)
-            
+
         scan = photo_process(image, params, progress_callback=cb, node_complete_callback=node_cb)
-        scan = np.uint8(scan*255)
+        scan = np.uint8(scan * 255)
         return scan
 
     def _on_process_finished(self, scan):
@@ -343,25 +696,27 @@ class AgXEmulsionConfiguration:
             else:
                 self._viewer.add_image(scan, name=layer_name)
 
+
 def main():
     # create a viewer
-    viewer = napari.Viewer(title='AGX-Emulsion')
+    viewer = napari.Viewer(title="AGX-Emulsion")
     viewer.window._qt_viewer.dockLayerControls.setVisible(False)
     viewer.window._qt_viewer.dockLayerList.setVisible(False)
     layer_list = viewer.window._qt_viewer.dockLayerList
-    
+
     settings = get_settings()
-    settings.appearance.theme = 'system'
+    settings.appearance.theme = "system"
 
     # Instantiate the GUI
     configuration = AgXEmulsionConfiguration()
     configuration._viewer = viewer
-    
+
     # Add widgets to viewer
     viewer.window.add_dock_widget(configuration, area="right", name="Configuration", tabify=False)
     viewer.window.add_dock_widget(layer_list, area="right", name="Layers", tabify=False)
 
     napari.run()
+
 
 if __name__ == "__main__":
     main()

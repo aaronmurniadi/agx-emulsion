@@ -3,6 +3,7 @@ from agx_emulsion.process.utils.lut import warmup_luts
 from agx_emulsion.process.utils.fast_interp import warmup_fast_interp
 from agx_emulsion.process.utils.fast_gaussian_filter import warmup_fast_gaussian_filter
 
+
 # precompile numba functions
 def warmup():
     warmup_fast_stats()
