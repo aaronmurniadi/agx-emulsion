@@ -54,7 +54,17 @@ class AgXEmulsionConfiguration:
     class Input:
         filename = field(Path("./"), label="File", options={"mode": "r"})
         
-        def load_image(self):
+        def __post_init__(self):
+            """Connect filename field change to auto-load image after widget creation."""
+            # Connect the changed signal to auto-load image
+            # Use QTimer to ensure widget is fully created
+            from qtpy.QtCore import QTimer
+            def connect_signal():
+                if hasattr(self.filename, 'changed'):
+                    self.filename.changed.connect(self._load_image)
+            QTimer.singleShot(10, connect_signal)
+        
+        def _load_image(self):
             """Load the image from the specified file."""
             if not self.filename.value.exists() or self.filename.value.is_dir():
                 return
