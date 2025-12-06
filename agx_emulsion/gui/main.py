@@ -151,7 +151,7 @@ class AgXEmulsionConfiguration:
                 },
             )
             particle_scale = vfield(
-                (0.5, 0.7, 1.7),
+                (0.8, 1.0, 2),
                 label="Particle Scale",
                 options={
                     "tooltip": "Scale of particle area for the RGB layers, multiplies particle_area_um2"
