@@ -47,22 +47,22 @@ print('Negative profiles')
 
 #             proc,   type,      label,                    name,                       suffix   dye_donor,   ls_donor            ddmm_donor           d_over_min, ref_ill, target_paper,               align_mid_exp, trustability, densitometer
 stock_info = [
-              (False,  'negative', 'kodak_vision3_50d',      'Kodak Vision3 50D',         '',      None       , None,               None,                0.2,        'D55',  'kodak_2383_uc',             None,          0.3,         'status_A'),
-              (False,  'negative', 'kodak_vision3_250d',     'Kodak Vision3 250D',        '',      None       , None,               None,                0.2,        'D55',  'kodak_2383_uc',             None,          0.3,         'status_A'),
-              (False,  'negative', 'kodak_vision3_200t',     'Kodak Vision3 200T',        '',      None       , None,               None,                0.2,        'T',    'kodak_2383_uc',             None,          0.3,         'status_A'),
-              (False,  'negative', 'kodak_vision3_500t',     'Kodak Vision3 500T',        '',      None       , None,               None,                0.2,        'T',    'kodak_2383_uc',             None,          0.3,         'status_A'),
-              (True,   'negative', 'kodak_100t_5247',        'Kodak 100T 5247',           '',      None       , None,               None,                0.2,        'D55',  'kodak_portra_endura_uc',    None,          0.3,         'status_A'),
-              (False,  'negative', 'kodak_ektar_100',        'Kodak Ektar 100',           '',      'generic_a', None,               None,                0.2,        'D55',  'kodak_portra_endura_uc',    None,          1.0,         'status_A'),
-              (False,  'negative', 'kodak_portra_160',       'Kodak Portra 160',          '',      'generic_a', None,               None,                0.2,        'D55',  'kodak_portra_endura_uc',    None,          1.0,         'status_A'),
-              (False,  'negative', 'kodak_portra_400',       'Kodak Portra 400',          '',      'generic_a', None,               None,                0.2,        'D55',  'kodak_portra_endura_uc',    None,          1.0,         'status_A'),
-              (False,  'negative', 'kodak_portra_800',       'Kodak Portra 800',          '',      'generic_a', None,               None,                0.2,        'D55',  'kodak_portra_endura_uc',    None,          1.0,         'status_A'),
-              (False,  'negative', 'kodak_portra_800_push1', 'Kodak Portra 800 (Push 1)', '',      'generic_a', 'kodak_portra_800', 'kodak_portra_800',  0.2,        'D55',  'kodak_portra_endura_uc',    None,          1.0,         'status_A'),
-              (False,  'negative', 'kodak_portra_800_push2', 'Kodak Portra 800 (Push 2)', '',      'generic_a', 'kodak_portra_800', 'kodak_portra_800',  0.2,        'D55',  'kodak_portra_endura_uc',    None,          1.0,         'status_A'),
-              (False,  'negative', 'kodak_gold_200',         'Kodak Gold 200',            '',      'generic_a', None,               None,                0.2,        'D55',  'kodak_portra_endura_uc',    None,          1.0,         'status_A'),
-              (False,  'negative', 'kodak_ultramax_400',     'Kodak Ultramax 400',        '',      'generic_a', None,               None,                0.2,        'D55',  'kodak_portra_endura_uc',    None,          1.0,         'status_A'),
-              (False,  'negative', 'fujifilm_pro_400h',      'Fujifilm Pro 400H',         '',      'generic_a', None,               None,                1.0,        'D55',  'kodak_portra_endura_uc',    'mid',         0.3,         'status_A'),
-              (False,  'negative', 'fujifilm_xtra_400',      'Fujifilm X-Tra 400',        '',      'generic_a', None,               None,                1.0,        'D55',  'kodak_portra_endura_uc',    None,          0.3,         'status_A'),
-              (False,  'negative', 'fujifilm_c200',          'Fujifilm C200',             '',      'generic_a', None,               None,                1.0,        'D55',  'kodak_portra_endura_uc',    'green',       0.3,         'status_A'),
+              (True,  'negative', 'kodak_vision3_50d',      'Kodak Vision3 50D',         '',      None       , None,               None,                0.2,        'D55',  'kodak_2383_uc',             None,          0.3,         'status_M'),
+              (True,  'negative', 'kodak_vision3_250d',     'Kodak Vision3 250D',        '',      None       , None,               None,                0.2,        'D55',  'kodak_2383_uc',             None,          0.3,         'status_M'),
+              (True,  'negative', 'kodak_vision3_200t',     'Kodak Vision3 200T',        '',      None       , None,               None,                0.2,        'T',    'kodak_2383_uc',             None,          0.3,         'status_M'),
+              (True,  'negative', 'kodak_vision3_500t',     'Kodak Vision3 500T',        '',      None       , None,               None,                0.2,        'T',    'kodak_2383_uc',             None,          0.3,         'status_M'),
+              (True,  'negative', 'kodak_100t_5247',        'Kodak 100T 5247',           '',      None       , None,               None,                0.2,        'D55',  'kodak_portra_endura_uc',    None,          0.3,         'status_A'),
+              (True,  'negative', 'kodak_ektar_100',        'Kodak Ektar 100',           '',      'generic_a', None,               None,                0.2,        'D55',  'kodak_portra_endura_uc',    None,          1.0,         'status_M'),
+              (True,  'negative', 'kodak_portra_160',       'Kodak Portra 160',          '',      'generic_a', None,               None,                0.2,        'D55',  'kodak_portra_endura_uc',    None,          1.0,         'status_M'),
+              (True,  'negative', 'kodak_portra_400',       'Kodak Portra 400',          '',      'generic_a', None,               None,                0.2,        'D55',  'kodak_portra_endura_uc',    None,          1.0,         'status_M'),
+              (True,  'negative', 'kodak_portra_800',       'Kodak Portra 800',          '',      'generic_a', None,               None,                0.2,        'D55',  'kodak_portra_endura_uc',    None,          1.0,         'status_M'),
+              (True,  'negative', 'kodak_portra_800_push1', 'Kodak Portra 800 (Push 1)', '',      'generic_a', 'kodak_portra_800', 'kodak_portra_800',  0.2,        'D55',  'kodak_portra_endura_uc',    None,          1.0,         'status_M'),
+              (True,  'negative', 'kodak_portra_800_push2', 'Kodak Portra 800 (Push 2)', '',      'generic_a', 'kodak_portra_800', 'kodak_portra_800',  0.2,        'D55',  'kodak_portra_endura_uc',    None,          1.0,         'status_M'),
+              (True,  'negative', 'kodak_gold_200',         'Kodak Gold 200',            '',      'generic_a', None,               None,                0.2,        'D55',  'kodak_portra_endura_uc',    None,          1.0,         'status_M'),
+              (True,  'negative', 'kodak_ultramax_400',     'Kodak Ultramax 400',        '',      'generic_a', None,               None,                0.2,        'D55',  'kodak_portra_endura_uc',    None,          1.0,         'status_M'),
+              (True,  'negative', 'fujifilm_pro_400h',      'Fujifilm Pro 400H',         '',      'generic_a', None,               None,                1.0,        'D55',  'kodak_portra_endura_uc',    'mid',         0.3,         'status_M'),
+              (True,  'negative', 'fujifilm_xtra_400',      'Fujifilm X-Tra 400',        '',      'generic_a', None,               None,                1.0,        'D55',  'kodak_portra_endura_uc',    None,          0.3,         'status_M'),
+              (True,  'negative', 'fujifilm_c200',          'Fujifilm C200',             '',      'generic_a', None,               None,                1.0,        'D55',  'kodak_portra_endura_uc',    'green',       0.3,         'status_M'),
               ]
 
 if process_negative:
@@ -161,4 +161,4 @@ if process_negative:
         save_ymc_filter_values(ymc_filters)
         print('Done!')
 
-plt.show()
+#plt.show()
