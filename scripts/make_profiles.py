@@ -7,7 +7,7 @@ from agx_emulsion.process.physics.stocks import fit_print_filters, PrintPapers, 
 from agx_emulsion.process.core.process import photo_params
 from agx_emulsion.process.utils.io import read_neutral_ymc_filter_values, save_ymc_filter_values
 
-process_print_paper = False
+process_print_paper = True
 process_negative = True
 fit_ymc_filters = True  # Set to True to fit YMC filters for processed films
 

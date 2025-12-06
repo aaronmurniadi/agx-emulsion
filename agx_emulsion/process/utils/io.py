@@ -182,7 +182,8 @@ def load_agx_emulsion_data(
         datapkg = maindatapkg + "." + stock
     rootname = "log_sensitivity_"
     log_sensitivity = np.zeros((np.size(spectral_shape.wavelengths), 3))
-    channels = ["r", "g", "b"]
+    # All data uses CMY channels (C->R, M->G, Y->B)
+    channels = ["c", "m", "y"]
     for i, channel in enumerate(channels):
         data = load_csv(datapkg, rootname + channel + ".csv")
         log_sens = interpolate_to_common_axis(data, spectral_shape.wavelengths)
