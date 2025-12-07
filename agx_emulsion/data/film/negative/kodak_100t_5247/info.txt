@@ -1,0 +1,6 @@
+C -> R
+M -> G
+Y -> B
+
+https://125px.com/docs/motionpicture/kodak/ti0835.pdf (log sensitivity, density curves)
+https://filmcolors.org/wp-content/uploads/2015/01/Kennel_Sehlin_etalNeg5293_1982.pdf p.925,fig.7 (dye densities)
