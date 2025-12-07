@@ -6,7 +6,7 @@
         "color": true,
         "densitometer": "status_M",
         "log_sensitivity_density_over_min": 0.2,
-        "reference_illuminant": "D55",
+        "reference_illuminant": "T",
         "viewing_illuminant": "D50"
     },
     "data": {

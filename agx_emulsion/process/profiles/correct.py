@@ -2,7 +2,7 @@ import numpy as np
 import scipy.interpolate
 import copy
 from agx_emulsion.process.core.process import photo_process, photo_params
-from agx_emulsion.process.physics.stocks import fit_print_filters
+from agx_emulsion.process.utils.fit_print_filters import fit_print_filters
 from agx_emulsion.process.physics.density_curves import interpolate_exposure_to_density
 
 def measure_log_exposure_midscale_neutral(profile, reference_channel=None):
