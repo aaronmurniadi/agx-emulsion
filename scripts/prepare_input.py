@@ -8,6 +8,7 @@ import argparse
 # --- Configuration ---
 parser = argparse.ArgumentParser(description="Convert raw images to archival TIFF.")
 parser.add_argument('-i', '--input', type=str, required=True, help='Path to the input raw image file.')
+parser.add_argument('--highlight-mode', type=int, default=2, help='Highlight recovery mode (0=clip, 1=unblend, 2=blend, 3+=reconstruct). Default is 2.')
 args = parser.parse_args()
 
 RAW_FILE_PATH = args.input
@@ -19,7 +20,7 @@ LINEAR_PROPHOTO_PROFILE_PATH = os.path.join(os.path.dirname(os.path.abspath(__fi
 
 # --- Core Conversion Logic ---
 
-def convert_to_archival_tiff(raw_path: str, output_path: str, profile_path: str):
+def convert_to_archival_tiff(raw_path: str, output_path: str, profile_path: str, highlight_mode: int = 2):
     """
     Converts a raw image to a 32-bit float TIFF with linear ProPhoto RGB,
     Absolute Colorimetric intent, and Deflate level 6 compression.
@@ -43,8 +44,8 @@ def convert_to_archival_tiff(raw_path: str, output_path: str, profile_path: str)
                 no_auto_bright=True, 
                 output_bps=16,
                 use_camera_wb=True,
-                output_color=rawpy.ColorSpace.ProPhoto
-                # output_color set to ProPhoto RGB (ROMM RGB)
+                output_color=rawpy.ColorSpace.ProPhoto,
+                highlight_mode=highlight_mode
             )
         
         # 2. Cast to 32-bit Floating Point (Unbounded Data)
@@ -95,4 +96,4 @@ if __name__ == "__main__":
     # Note: Replace 'input_image.nef' and the profile path with actual file paths
     # For a quick test, ensure a raw file (e.g., a.CR2,.NEF, or.DNG) exists 
     # and adjust the file paths above.
-    convert_to_archival_tiff(RAW_FILE_PATH, OUTPUT_FILE_PATH, LINEAR_PROPHOTO_PROFILE_PATH)
+    convert_to_archival_tiff(RAW_FILE_PATH, OUTPUT_FILE_PATH, LINEAR_PROPHOTO_PROFILE_PATH, args.highlight_mode)
