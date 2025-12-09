@@ -55,9 +55,11 @@ class AgXEmulsionConfiguration(QWidget):
 
     def setup_ui(self):
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(4, 4, 4, 4)
 
         # Input Section
         input_layout = QHBoxLayout()
+        input_layout.setContentsMargins(0, 0, 0, 0)
         
         self.file_path_label = QLabel("No file selected")
         self.file_path_label.setWordWrap(True)
@@ -71,6 +73,7 @@ class AgXEmulsionConfiguration(QWidget):
 
         # Run Section
         run_layout = QHBoxLayout()
+        run_layout.setContentsMargins(0, 0, 0, 0)
         
         run_btn = QPushButton("Run Simulation")
         run_btn.clicked.connect(self.run_simulation)
@@ -191,10 +194,11 @@ class AgXEmulsionConfiguration(QWidget):
         # Main widget for the Film tab
         main_widget = QWidget()
         main_layout = QVBoxLayout(main_widget)
+        main_layout.setContentsMargins(2, 2, 2, 2)
         
         # General Settings Section
-        general_group = QGroupBox()
-        general_layout = QFormLayout(general_group)
+        general_layout = QFormLayout()
+        general_layout.setContentsMargins(4, 4, 4, 4)
         s = self.film_controls
         
         self.add_combo(general_layout, "Film Stock", FilmStocks, FilmStocks.kodak_vision3_500t, "Film stock to simulate", "film_stock", s)
@@ -204,7 +208,7 @@ class AgXEmulsionConfiguration(QWidget):
         self.add_checkbox(general_layout, "Auto Exposure", False, "Automatically adjust exposure based on the image content", "auto_exposure", s)
         self.add_combo(general_layout, "Auto Exposure Method", AutoExposureMethods, AutoExposureMethods.center_weighted, "", "auto_exposure_method", s)
         
-        main_layout.addWidget(general_group)
+        main_layout.addLayout(general_layout)
         
         # Nested Tabs for Sub-sections
         sub_tabs = QTabWidget()
@@ -212,6 +216,7 @@ class AgXEmulsionConfiguration(QWidget):
         # --- Grain Tab ---
         grain_tab = QWidget()
         grain_layout = QFormLayout(grain_tab)
+        grain_layout.setContentsMargins(4, 4, 4, 4)
         # s is still self.film_controls, sharing the same storage
         self.add_checkbox(grain_layout, "Sublayers Active", True, "", "sublayers_active", s)
         self.add_spin(grain_layout, "Particle Area (um2)", 0.1, 0.0, 100.0, 0.1, 2, "Area of the particles in um2, relates to ISO", "particle_area_um2", s)
@@ -227,6 +232,7 @@ class AgXEmulsionConfiguration(QWidget):
         # --- Halation Tab ---
         halation_tab = QWidget()
         halation_layout = QFormLayout(halation_tab)
+        halation_layout.setContentsMargins(4, 4, 4, 4)
         self.add_tuple_spin(halation_layout, "Scattering Strength", (1.0, 2.0, 4.0), 0.0, 100.0, 0.1, "Fraction of scattered light (0-100)", "scattering_strength", s, value_labels=("R", "G", "B"))
         self.add_tuple_spin(halation_layout, "Scattering Size (um)", (30, 20, 15), 0.0, 1000.0, 1.0, "Size of the scattering effect in micrometers", "scattering_size_um", s, value_labels=("R", "G", "B"))
         self.add_tuple_spin(halation_layout, "Halation Strength", (10.0, 7.30, 7.1), 0.0, 100.0, 0.1, "Fraction of halation light (0-100)", "halation_strength", s, value_labels=("R", "G", "B"))
@@ -236,6 +242,7 @@ class AgXEmulsionConfiguration(QWidget):
         # --- Couplers Tab ---
         couplers_tab = QWidget()
         couplers_layout = QFormLayout(couplers_tab)
+        couplers_layout.setContentsMargins(4, 4, 4, 4)
         self.add_checkbox(couplers_layout, "Active", True, "", "couplers_active", s)
         self.add_spin(couplers_layout, "Amount", 1.0, 0.0, 10.0, 0.05, 2, "Amount of coupler inhibitors", "dir_couplers_amount", s)
         self.add_tuple_spin(couplers_layout, "Ratio", (1.0, 1.0, 1.0), 0.0, 10.0, 0.1, "", "dir_couplers_ratio", s, value_labels=("R", "G", "B"))
@@ -252,10 +259,11 @@ class AgXEmulsionConfiguration(QWidget):
         # Main widget for the Print tab
         main_widget = QWidget()
         main_layout = QVBoxLayout(main_widget)
+        main_layout.setContentsMargins(2, 2, 2, 2)
         
         # General Settings Section
-        general_group = QGroupBox()
-        general_layout = QFormLayout(general_group)
+        general_layout = QFormLayout()
+        general_layout.setContentsMargins(4, 4, 4, 4)
         s = self.print_controls
 
         self.add_combo(general_layout, "Print Paper", PrintPapers, PrintPapers.kodak_supra_endura, "Print paper to simulate", "print_paper", s)
@@ -265,7 +273,7 @@ class AgXEmulsionConfiguration(QWidget):
         self.add_spin(general_layout, "Y Filter Shift", 0, -ENLARGER_STEPS, ENLARGER_STEPS, 1, 0, "Y filter shift", "print_y_filter_shift", s)
         self.add_spin(general_layout, "M Filter Shift", 0, -ENLARGER_STEPS, ENLARGER_STEPS, 1, 0, "M filter shift", "print_m_filter_shift", s)
 
-        main_layout.addWidget(general_group)
+        main_layout.addLayout(general_layout)
 
         # Nested Tabs
         sub_tabs = QTabWidget()
@@ -273,6 +281,7 @@ class AgXEmulsionConfiguration(QWidget):
         # --- Preflashing Tab ---
         preflash_tab = QWidget()
         preflash_layout = QFormLayout(preflash_tab)
+        preflash_layout.setContentsMargins(4, 4, 4, 4)
         self.add_spin(preflash_layout, "Exposure", 0.0, 0.0, 100.0, 0.005, 3, "Preflash exposure value", "preflash_exposure", s)
         self.add_spin(preflash_layout, "Y Filter Shift", 0, -ENLARGER_STEPS, ENLARGER_STEPS, 1, 0, "Shift Y filter for preflash", "preflash_y_filter_shift", s)
         self.add_spin(preflash_layout, "M Filter Shift", 0, -ENLARGER_STEPS, ENLARGER_STEPS, 1, 0, "Shift M filter for preflash", "preflash_m_filter_shift", s)
@@ -282,6 +291,7 @@ class AgXEmulsionConfiguration(QWidget):
         # --- Glare Tab ---
         glare_tab = QWidget()
         glare_layout = QFormLayout(glare_tab)
+        glare_layout.setContentsMargins(4, 4, 4, 4)
         self.add_checkbox(glare_layout, "Active", True, "Add glare to the print", "glare_active", s)
         self.add_spin(glare_layout, "Percent", 0.10, 0.0, 1.0, 0.05, 2, "Percentage of the glare light", "percent", s)
         self.add_spin(glare_layout, "Roughness", 0.4, 0.0, 1.0, 0.05, 2, "Roughness of the glare light", "roughness", s)
@@ -298,6 +308,7 @@ class AgXEmulsionConfiguration(QWidget):
     def setup_scanner_tab(self):
         widget = QWidget()
         layout = QFormLayout(widget)
+        layout.setContentsMargins(4, 4, 4, 4)
         s = self.scanner_controls
 
         self.add_spin(layout, "Lens Blur", 0.00, 0.0, 100.0, 0.05, 2, "Sigma of gaussian filter in pixel", "scan_lens_blur", s)
@@ -309,6 +320,7 @@ class AgXEmulsionConfiguration(QWidget):
     def setup_advanced_tab(self):
         widget = QWidget()
         layout = QFormLayout(widget)
+        layout.setContentsMargins(4, 4, 4, 4)
         s = self.advanced_controls
 
         self.add_tuple_spin(layout, "Film Channel Swap", (0, 1, 2), 0, 2, 1, "", "film_channel_swap", s, value_labels=("0", "1", "2"))
@@ -322,6 +334,7 @@ class AgXEmulsionConfiguration(QWidget):
     def setup_misc_tab(self):
         widget = QWidget()
         layout = QFormLayout(widget)
+        layout.setContentsMargins(4, 4, 4, 4)
         s = self.misc_controls
 
         self.add_spin(layout, "Preview Resize", 0.3, 0.0, 1.0, 0.1, 2, "Scale image size down", "preview_resize_factor", s)
