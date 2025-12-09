@@ -6,12 +6,15 @@ from napari.layers import Image
 from napari.types import ImageData
 from napari.settings import get_settings
 from napari.utils import progress
-from magicgui.widgets import Label
 from qtpy.QtCore import Qt, QObject, Signal
+from qtpy.QtWidgets import (
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, 
+    QCheckBox, QComboBox, QDoubleSpinBox, QSpinBox, 
+    QTabWidget, QScrollArea, QFileDialog, QGroupBox, QFormLayout
+)
 
 from pathlib import Path
 from dotmap import DotMap
-from magicclass import magicclass, field, vfield, set_design, set_options, magicmenu, magiccontext
 from napari.qt.threading import thread_worker
 
 from agx_emulsion.process.config import ENLARGER_STEPS
@@ -44,267 +47,469 @@ class AutoExposureMethods(Enum):
 class WorkerSignals(QObject):
     progress = Signal(str, int, int)
 
-@magicclass(widget_type="scrollable")
-class AgXEmulsionConfiguration:
-    def __init__(self):
-        self._viewer = None
+class AgXEmulsionConfiguration(QWidget):
+    def __init__(self, viewer):
+        super().__init__()
+        self._viewer = viewer
+        self.setup_ui()
 
-    @magicclass(name="Input Image", layout="horizontal")
-    class Input:
-        filename = field(Path("./"), label="File", options={"mode": "r", "filter": "*.tif;*.tiff;*.jpg;*.jpeg;*.png;*.arw;*.cr2;*.nef;*.dng"})
+    def setup_ui(self):
+        layout = QVBoxLayout(self)
+
+        # Input Section
+        input_group = QGroupBox("Input Image")
+        input_layout = QHBoxLayout()
         
-        def load_image(self):
-            """Load the image from the specified file."""
-            if not self.filename.value.exists() or self.filename.value.is_dir():
-                return
-                
-            file_path = str(self.filename.value)
-            ext = self.filename.value.suffix.lower()
-            
-            img_array = None
-            
-            # Check for RAW file extensions
-            raw_extensions = ['.arw', '.cr2', '.nef', '.dng']
-            if ext in raw_extensions:
-                try:
-                    import sys
-                    import importlib.util
-                    
-                    # Locate the scripts/prepare_input.py file relative to this file
-                    # agx_emulsion/gui/main.py -> ../../scripts/prepare_input.py
-                    current_dir = Path(__file__).parent
-                    script_path = current_dir.parent.parent / "scripts" / "prepare_input.py"
-                    
-                    if not script_path.exists():
-                        print(f"Error: Could not find prepare_input.py at {script_path}")
-                        return
+        self.file_path_label = QLabel("No file selected")
+        self.file_path_label.setWordWrap(True)
+        browse_btn = QPushButton("Browse...")
+        browse_btn.clicked.connect(self.load_image)
+        
+        input_layout.addWidget(QLabel("File:"))
+        input_layout.addWidget(self.file_path_label)
+        input_layout.addWidget(browse_btn)
+        input_group.setLayout(input_layout)
+        layout.addWidget(input_group)
 
-                    # Dynamic import
-                    spec = importlib.util.spec_from_file_location("prepare_input", script_path)
-                    prepare_input = importlib.util.module_from_spec(spec)
-                    sys.modules["prepare_input"] = prepare_input
-                    spec.loader.exec_module(prepare_input)
-                    
-                    print(f"Loading RAW image: {file_path}")
-                    # Process the raw image
-                    img_array = prepare_input.process_raw_image(file_path)
-                    
-                except Exception as e:
-                    print(f"Error loading RAW file: {e}")
-                    return
+        # Run Section
+        run_group = QGroupBox("Run")
+        run_layout = QHBoxLayout()
+        
+        run_btn = QPushButton("Run Simulation")
+        run_btn.clicked.connect(self.run_simulation)
+        self.compute_full_image = QCheckBox("Compute Full Image")
+        self.compute_full_image.setToolTip("Do not apply preview resize, compute full resolution image. Keeps the crop if active.")
+        
+        run_layout.addWidget(run_btn)
+        run_layout.addWidget(self.compute_full_image)
+        run_group.setLayout(run_layout)
+        layout.addWidget(run_group)
+
+        # Settings Tabs
+        self.tabs = QTabWidget()
+        
+        # Initialize control references containers
+        self.film_controls = DotMap()
+        self.print_controls = DotMap()
+        self.scanner_controls = DotMap()
+        self.advanced_controls = DotMap()
+        self.misc_controls = DotMap()
+
+        self.setup_film_tab()
+        self.setup_print_tab()
+        self.setup_scanner_tab()
+        self.setup_advanced_tab()
+        self.setup_misc_tab()
+
+        layout.addWidget(self.tabs)
+        
+        # Add stretch to keep widgets at top
+        # layout.addStretch() # remove stretch to let tab expand? or use scroll area inside tabs
+
+    def create_scroll_area(self, widget):
+        scroll = QScrollArea()
+        scroll.setWidget(widget)
+        scroll.setWidgetResizable(True)
+        return scroll
+
+    def add_spin(self, layout, label, value, min_val=0.0, max_val=100.0, step=1.0, decimals=2, tooltip="", key=None, storage=None):
+        if isinstance(value, float):
+            spin = QDoubleSpinBox()
+            spin.setDecimals(decimals)
+            spin.setSingleStep(step)
+            spin.setRange(min_val, max_val)
+        else:
+            spin = QSpinBox()
+            spin.setSingleStep(int(step))
+            spin.setRange(int(min_val), int(max_val))
+        
+        spin.setValue(value)
+        spin.setToolTip(tooltip)
+        
+        layout.addRow(label, spin)
+        if key and storage is not None:
+            storage[key] = spin
+        return spin
+
+    def add_combo(self, layout, label, enum_class, default_value, tooltip="", key=None, storage=None):
+        combo = QComboBox()
+        for i, item in enumerate(enum_class):
+            combo.addItem(item.value, item)
+            if item == default_value:
+                combo.setCurrentIndex(i)
+        
+        combo.setToolTip(tooltip)
+        layout.addRow(label, combo)
+        if key and storage is not None:
+            storage[key] = combo
+        return combo
+
+    def add_checkbox(self, layout, label, value, tooltip="", key=None, storage=None):
+        cb = QCheckBox()
+        cb.setChecked(value)
+        cb.setToolTip(tooltip)
+        layout.addRow(label, cb)
+        if key and storage is not None:
+            storage[key] = cb
+        return cb
+
+    def add_tuple_spin(self, layout, label, value_tuple, min_val=0.0, max_val=100.0, step=1.0, tooltip="", key=None, storage=None):
+        container = QWidget()
+        h_layout = QHBoxLayout(container)
+        h_layout.setContentsMargins(0, 0, 0, 0)
+        
+        spins = []
+        spins = []
+        for val in value_tuple:
+            if isinstance(val, float):
+                s = QDoubleSpinBox()
+                s.setDecimals(2)
+                s.setSingleStep(step)
+                s.setRange(min_val, max_val)
             else:
-                img_array = load_image_oiio(file_path)
-                img_array = img_array[..., :3]
-
-            if img_array is not None:
-                # Get the viewer from the parent
-                viewer = self.__magicclass_parent__._viewer
-                if viewer:
-                    # Remove existing Input Image layer if present
-                    if "Input Image" in viewer.layers:
-                        viewer.layers.remove("Input Image")
-                        
-                    viewer.add_image(img_array, name="Input Image")
-                    viewer.reset_view()
-
-    @magicclass(labels=False, name="Run", layout="horizontal")
-    class Run:
-        def run_simulation(self):
-            """Run the simulation."""
-            self.__magicclass_parent__._run_simulation(full_image=self.compute_full_image)
-
-        compute_full_image = vfield(False, label="Compute Full Image", options={"tooltip": "Do not apply preview resize, compute full resolution image. Keeps the crop if active."})
-
-    @magicclass(widget_type="tabbed", labels=False)
-    class Settings:
-
-        @magicclass(name="Film", widget_type="scrollable")
-        class Film:
-            film_stock = vfield(FilmStocks.kodak_vision3_500t, label="Film Stock", options={"tooltip": "Film stock to simulate"})
-            film_format_mm = vfield(35.0, label="Format (mm)", options={"tooltip": "Long edge of the film format in millimeters, e.g. 35mm or 60mm"})
-            camera_lens_blur_um = vfield(0.0, label="Lens Blur (um)", options={"tooltip": "Sigma of gaussian filter in um for the camera lens blur. About 5 um for typical lenses, down to 2-4 um for high quality lenses, used for sharp input simulations without lens blur."})
-            exposure_compensation_ev = vfield(0.0, label="Exposure Comp (EV)", options={"min": -100, "max": 100, "step": 0.5, "tooltip": "Exposure compensation value in ev of the negative"})
-            auto_exposure = vfield(False, label="Auto Exposure", options={"tooltip": "Automatically adjust exposure based on the image content"})
-            auto_exposure_method = vfield(AutoExposureMethods.center_weighted, label="Auto Exposure Method")
+                s = QSpinBox()
+                s.setSingleStep(int(step))
+                s.setRange(int(min_val), int(max_val))
+            s.setValue(val)
+            s.setToolTip(tooltip)
+            h_layout.addWidget(s)
+            spins.append(s)
             
-            grain_label = Label(value="\n[Grain]")
-            sublayers_active = vfield(True, label="Sublayers Active")
-            particle_area_um2 = vfield(0.1, label="Particle Area (um2)", options={"step": 0.1, "tooltip": "Area of the particles in um2, relates to ISO. Approximately 0.1 for ISO 100, 0.1 for ISO 200, 0.4 for ISO 400 and so on."})
-            particle_scale = vfield((0.8, 1.0, 2), label="Particle Scale", options={"tooltip": "Scale of particle area for the RGB layers, multiplies particle_area_um2"})
-            particle_scale_layers = vfield((2.5, 1.0, 0.5), label="Particle Scale Layers", options={"tooltip": "Scale of particle area for the sublayers in every color layer, multiplies particle_area_um2"})
-            density_min = vfield((0.07, 0.08, 0.12), label="Density Min", options={"tooltip": "Minimum density of the grain, typical values (0.03-0.06)"})
-            uniformity = vfield((0.97, 0.97, 0.99), label="Uniformity", options={"tooltip": "Uniformity of the grain, typical values (0.94-0.98)"})
-            blur = vfield(0.65, label="Blur", options={"tooltip": "Sigma of gaussian blur in pixels for the grain, to be increased at high magnifications, (should be 0.8-0.9 at high resolution, reduce down to 0.6 for lower res)."})
-            blur_dye_clouds_um = vfield(1.0, label="Blur Dye Clouds (um)", options={"tooltip": "Scale the sigma of gaussian blur in um for the dye clouds, to be used at high magnifications, (default 1)"})
-            micro_structure = vfield((0.1, 30), label="Micro Structure", options={"tooltip": "Parameter for micro-structure due to clumps at the molecular level, [sigma blur of micro-structure / ultimate light-resolution (0.10 um default), size of molecular clumps in nm (30 nm default)]. Only for insane magnifications."})
+        layout.addRow(label, container)
+        if key and storage is not None:
+            storage[key] = spins
+        return spins
+
+    def setup_film_tab(self):
+        # Main widget for the Film tab
+        main_widget = QWidget()
+        main_layout = QVBoxLayout(main_widget)
+        
+        # General Settings Section
+        general_group = QGroupBox()
+        general_layout = QFormLayout(general_group)
+        s = self.film_controls
+        
+        self.add_combo(general_layout, "Film Stock", FilmStocks, FilmStocks.kodak_vision3_500t, "Film stock to simulate", "film_stock", s)
+        self.add_spin(general_layout, "Format (mm)", 35.0, 1.0, 1000.0, 1.0, 1, "Long edge of the film format in millimeters", "film_format_mm", s)
+        self.add_spin(general_layout, "Lens Blur (um)", 0.0, 0.0, 100.0, 0.1, 2, "Sigma of gaussian filter in um for the camera lens blur", "camera_lens_blur_um", s)
+        self.add_spin(general_layout, "Exposure Comp (EV)", 0.0, -100.0, 100.0, 0.5, 2, "Exposure compensation value in ev of the negative", "exposure_compensation_ev", s)
+        self.add_checkbox(general_layout, "Auto Exposure", False, "Automatically adjust exposure based on the image content", "auto_exposure", s)
+        self.add_combo(general_layout, "Auto Exposure Method", AutoExposureMethods, AutoExposureMethods.center_weighted, "", "auto_exposure_method", s)
+        
+        main_layout.addWidget(general_group)
+        
+        # Nested Tabs for Sub-sections
+        sub_tabs = QTabWidget()
+        
+        # --- Grain Tab ---
+        grain_tab = QWidget()
+        grain_layout = QFormLayout(grain_tab)
+        # s is still self.film_controls, sharing the same storage
+        self.add_checkbox(grain_layout, "Sublayers Active", True, "", "sublayers_active", s)
+        self.add_spin(grain_layout, "Particle Area (um2)", 0.1, 0.0, 100.0, 0.1, 2, "Area of the particles in um2, relates to ISO", "particle_area_um2", s)
+        self.add_tuple_spin(grain_layout, "Particle Scale", (0.8, 1.0, 2.0), 0.0, 100.0, 0.1, "Scale of particle area for the RGB layers", "particle_scale", s)
+        self.add_tuple_spin(grain_layout, "Particle Scale Layers", (2.5, 1.0, 0.5), 0.0, 100.0, 0.1, "Scale of particle area for the sublayers", "particle_scale_layers", s)
+        self.add_tuple_spin(grain_layout, "Density Min", (0.07, 0.08, 0.12), 0.0, 1.0, 0.01, "Minimum density of the grain", "density_min", s)
+        self.add_tuple_spin(grain_layout, "Uniformity", (0.97, 0.97, 0.99), 0.0, 1.0, 0.01, "Uniformity of the grain", "uniformity", s)
+        self.add_spin(grain_layout, "Blur", 0.65, 0.0, 100.0, 0.05, 2, "Sigma of gaussian blur in pixels for the grain", "blur", s)
+        self.add_spin(grain_layout, "Blur Dye Clouds (um)", 1.0, 0.0, 100.0, 0.1, 2, "Scale the sigma of gaussian blur in um for the dye clouds", "blur_dye_clouds_um", s)
+        self.add_tuple_spin(grain_layout, "Micro Structure", (0.1, 30), 0.0, 100.0, 0.1, "Parameter for micro-structure", "micro_structure", s)
+        sub_tabs.addTab(self.create_scroll_area(grain_tab), "Grain")
+        
+        # --- Halation Tab ---
+        halation_tab = QWidget()
+        halation_layout = QFormLayout(halation_tab)
+        self.add_tuple_spin(halation_layout, "Scattering Strength", (1.0, 2.0, 4.0), 0.0, 100.0, 0.1, "Fraction of scattered light (0-100)", "scattering_strength", s)
+        self.add_tuple_spin(halation_layout, "Scattering Size (um)", (30, 20, 15), 0.0, 1000.0, 1.0, "Size of the scattering effect in micrometers", "scattering_size_um", s)
+        self.add_tuple_spin(halation_layout, "Halation Strength", (10.0, 7.30, 7.1), 0.0, 100.0, 0.1, "Fraction of halation light (0-100)", "halation_strength", s)
+        self.add_tuple_spin(halation_layout, "Halation Size (um)", (200, 200, 200), 0.0, 2000.0, 1.0, "Size of the halation effect in micrometers", "halation_size_um", s)
+        sub_tabs.addTab(self.create_scroll_area(halation_tab), "Halation")
+
+        # --- Couplers Tab ---
+        couplers_tab = QWidget()
+        couplers_layout = QFormLayout(couplers_tab)
+        self.add_checkbox(couplers_layout, "Active", True, "", "couplers_active", s)
+        self.add_spin(couplers_layout, "Amount", 1.0, 0.0, 10.0, 0.05, 2, "Amount of coupler inhibitors", "dir_couplers_amount", s)
+        self.add_tuple_spin(couplers_layout, "Ratio", (1.0, 1.0, 1.0), 0.0, 10.0, 0.1, "", "dir_couplers_ratio", s)
+        self.add_spin(couplers_layout, "Diffusion (um)", 10, 0, 1000, 5, 0, "Sigma in um for the diffusion of the couplers", "dir_couplers_diffusion_um", s)
+        self.add_spin(couplers_layout, "Diffusion Interlayer", 2.0, 0.0, 100.0, 0.1, 2, "Sigma for diffusion across rgb layers", "diffusion_interlayer", s)
+        self.add_spin(couplers_layout, "High Exposure Shift", 0.0, -10.0, 10.0, 0.1, 2, "", "high_exposure_shift", s)
+        sub_tabs.addTab(self.create_scroll_area(couplers_tab), "Couplers")
+        
+        main_layout.addWidget(sub_tabs)
+        
+        self.tabs.addTab(main_widget, "Film")
+
+    def setup_print_tab(self):
+        widget = QWidget()
+        layout = QFormLayout(widget)
+        s = self.print_controls
+
+        self.add_combo(layout, "Print Paper", PrintPapers, PrintPapers.kodak_supra_endura, "Print paper to simulate", "print_paper", s)
+        self.add_combo(layout, "Illuminant", Illuminants, Illuminants.lamp, "Print illuminant to simulate", "print_illuminant", s)
+        self.add_spin(layout, "Exposure", 1.0, 0.0, 100.0, 0.05, 2, "Exposure value for the print", "print_exposure", s)
+        self.add_checkbox(layout, "Exposure Comp", False, "Apply exposure compensation from negative", "print_exposure_compensation", s)
+        self.add_spin(layout, "Y Filter Shift", 0, -ENLARGER_STEPS, ENLARGER_STEPS, 1, 0, "Y filter shift", "print_y_filter_shift", s)
+        self.add_spin(layout, "M Filter Shift", 0, -ENLARGER_STEPS, ENLARGER_STEPS, 1, 0, "M filter shift", "print_m_filter_shift", s)
+
+        layout.addRow(QLabel("<b>[Preflashing]</b>"))
+        self.add_spin(layout, "Exposure", 0.0, 0.0, 100.0, 0.005, 3, "Preflash exposure value", "preflash_exposure", s)
+        self.add_spin(layout, "Y Filter Shift", 0, -ENLARGER_STEPS, ENLARGER_STEPS, 1, 0, "Shift Y filter for preflash", "preflash_y_filter_shift", s)
+        self.add_spin(layout, "M Filter Shift", 0, -ENLARGER_STEPS, ENLARGER_STEPS, 1, 0, "Shift M filter for preflash", "preflash_m_filter_shift", s)
+        self.add_checkbox(layout, "Just Preflash", False, "Only apply preflash", "just_preflash", s)
+
+        layout.addRow(QLabel("<b>[Glare]</b>"))
+        self.add_checkbox(layout, "Active", True, "Add glare to the print", "glare_active", s)
+        self.add_spin(layout, "Percent", 0.10, 0.0, 1.0, 0.05, 2, "Percentage of the glare light", "percent", s)
+        self.add_spin(layout, "Roughness", 0.4, 0.0, 1.0, 0.05, 2, "Roughness of the glare light", "roughness", s)
+        self.add_spin(layout, "Blur", 0.5, 0.0, 100.0, 0.1, 2, "Sigma of gaussian blur", "blur", s)
+        self.add_spin(layout, "Comp Removal Factor", 0.0, 0.0, 1.0, 0.05, 2, "Factor of glare compensation removal", "compensation_removal_factor", s)
+        self.add_spin(layout, "Comp Removal Density", 1.2, 0.0, 10.0, 0.1, 2, "Density of the glare compensation removal", "compensation_removal_density", s)
+        self.add_spin(layout, "Comp Removal Transition", 0.3, 0.0, 10.0, 0.1, 2, "Transition density range", "compensation_removal_transition", s)
+
+        self.tabs.addTab(self.create_scroll_area(widget), "Print")
+
+    def setup_scanner_tab(self):
+        widget = QWidget()
+        layout = QFormLayout(widget)
+        s = self.scanner_controls
+
+        self.add_spin(layout, "Lens Blur", 0.00, 0.0, 100.0, 0.05, 2, "Sigma of gaussian filter in pixel", "scan_lens_blur", s)
+        self.add_tuple_spin(layout, "Unsharp Mask", (0.7, 0.7), 0.0, 100.0, 0.1, "Apply unsharp mask [sigma, amount]", "scan_unsharp_mask", s)
+        self.add_combo(layout, "Output Color Space", RGBColorSpaces, RGBColorSpaces.sRGB, "Color space of the output image", "output_color_space", s)
+        self.add_checkbox(layout, "Output CCTF Encoding", True, "Apply the cctf transfer function", "output_cctf_encoding", s)
+        self.tabs.addTab(self.create_scroll_area(widget), "Scanner")
+
+    def setup_advanced_tab(self):
+        widget = QWidget()
+        layout = QFormLayout(widget)
+        s = self.advanced_controls
+
+        self.add_tuple_spin(layout, "Film Channel Swap", (0, 1, 2), 0, 2, 1, "", "film_channel_swap", s)
+        self.add_spin(layout, "Film Gamma Factor", 1.0, 0.0, 10.0, 0.05, 2, "Gamma factor of the density curves", "film_gamma_factor", s)
+        self.add_tuple_spin(layout, "Print Channel Swap", (0, 1, 2), 0, 2, 1, "", "print_channel_swap", s)
+        self.add_spin(layout, "Print Gamma Factor", 1.0, 0.0, 10.0, 0.05, 2, "Gamma factor of the print paper", "print_gamma_factor", s)
+        self.add_spin(layout, "Print Density Min Factor", 0.4, 0.0, 1.0, 0.2, 2, "Minimum density factor", "print_density_min_factor", s)
+
+        self.tabs.addTab(self.create_scroll_area(widget), "Advanced")
+
+    def setup_misc_tab(self):
+        widget = QWidget()
+        layout = QFormLayout(widget)
+        s = self.misc_controls
+
+        self.add_spin(layout, "Preview Resize", 0.3, 0.0, 1.0, 0.1, 2, "Scale image size down", "preview_resize_factor", s)
+        self.add_spin(layout, "Upscale Factor", 1.0, 0.1, 10.0, 0.1, 2, "Scale image size up", "upscale_factor", s)
+        self.add_checkbox(layout, "Crop", False, "Crop image", "crop", s)
+        self.add_tuple_spin(layout, "Crop Center", (0.50, 0.50), 0.0, 1.0, 0.01, "Center of the crop region", "crop_center", s)
+        self.add_tuple_spin(layout, "Crop Size", (0.1, 0.1), 0.0, 1.0, 0.01, "Normalized size of the crop region", "crop_size", s)
+        self.add_combo(layout, "Color Space", RGBColorSpaces, RGBColorSpaces.ProPhotoRGB, "Color space of the input image", "input_color_space", s)
+        self.add_checkbox(layout, "Apply CCTF Decoding", False, "Apply the inverse cctf transfer function", "apply_cctf_decoding", s)
+        self.add_combo(layout, "Spectral Upsampling", RGBtoRAWMethod, RGBtoRAWMethod.hanatos2025, "Method to upsample the spectral resolution", "spectral_upsampling_method", s)
+        self.add_tuple_spin(layout, "Filter UV", (1, 410, 8), 0, 1000, 1, "Filter UV light", "filter_uv", s)
+        self.add_tuple_spin(layout, "Filter IR", (1, 675, 15), 0, 1000, 1, "Filter IR light", "filter_ir", s)
+
+        self.tabs.addTab(self.create_scroll_area(widget), "Misc.")
+
+    def load_image(self):
+        file_path, _ = QFileDialog.getOpenFileName(
+            self, 
+            "Open Image", 
+            str(Path.cwd()), 
+            "Images (*.tif *.tiff *.jpg *.jpeg *.png *.arw *.cr2 *.nef *.dng)"
+        )
+        
+        if not file_path:
+            return
+
+        path = Path(file_path)
+        self.file_path_label.setText(path.name)
+        
+        ext = path.suffix.lower()
+        img_array = None
+        
+        # Check for RAW file extensions
+        raw_extensions = ['.arw', '.cr2', '.nef', '.dng']
+        if ext in raw_extensions:
+            try:
+                import sys
+                import importlib.util
+                
+                # Locate the scripts/prepare_input.py file
+                current_dir = Path(__file__).parent
+                script_path = current_dir.parent.parent / "scripts" / "prepare_input.py"
+                
+                if not script_path.exists():
+                    print(f"Error: Could not find prepare_input.py at {script_path}")
+                    return
+
+                # Dynamic import
+                spec = importlib.util.spec_from_file_location("prepare_input", script_path)
+                prepare_input = importlib.util.module_from_spec(spec)
+                sys.modules["prepare_input"] = prepare_input
+                spec.loader.exec_module(prepare_input)
+                
+                print(f"Loading RAW image: {file_path}")
+                # Process the raw image
+                img_array = prepare_input.process_raw_image(file_path)
+                
+            except Exception as e:
+                print(f"Error loading RAW file: {e}")
+                import traceback
+                traceback.print_exc()
+                return
+        else:
+            img_array = load_image_oiio(file_path)
+            img_array = img_array[..., :3]
+
+        if img_array is not None:
+            if self._viewer:
+                # Remove existing Input Image layer if present
+                if "Input Image" in self._viewer.layers:
+                    self._viewer.layers.remove("Input Image")
                     
-            halation_label = Label(value="\n[Halation]")
-            scattering_strength = vfield((1.0, 2.0, 4.0), label="Scattering Strength", options={"tooltip": "Fraction of scattered light (0-100, percentage) for each channel [R,G,B]"})
-            scattering_size_um = vfield((30, 20, 15), label="Scattering Size (um)", options={"tooltip": "Size of the scattering effect in micrometers for each channel [R,G,B], sigma of gaussian filter."})
-            halation_strength = vfield((10.0, 7.30, 7.1), label="Halation Strength", options={"tooltip": "Fraction of halation light (0-100, percentage) for each channel [R,G,B]"})
-            halation_size_um = vfield((200, 200, 200), label="Halation Size (um)", options={"tooltip": "Size of the halation effect in micrometers for each channel [R,G,B], sigma of gaussian filter."})
+                self._viewer.add_image(img_array, name="Input Image")
+                self._viewer.reset_view()
 
-            couplers_label = Label(value="\n[Couplers]")
-            active = vfield(True, label="Active")
-            dir_couplers_amount = vfield(1.0, label="Amount", options={"step": 0.05, "tooltip": "Amount of coupler inhibitors, control saturation, typical values (0.8-1.2)."})
-            dir_couplers_ratio = vfield((1.0, 1.0, 1.0), label="Ratio")
-            dir_couplers_diffusion_um = vfield(10, label="Diffusion (um)", options={"step": 5, "tooltip": "Sigma in um for the diffusion of the couplers, (5-20 um), controls sharpness and affects saturation."})
-            diffusion_interlayer = vfield(2.0, label="Diffusion Interlayer", options={"tooltip": "Sigma in number of layers for diffusion across the rgb layers (typical layer thickness 3-5 um, so roughly 1.0-4.0 layers), affects saturation."})
-            high_exposure_shift = vfield(0.0, label="High Exposure Shift")
+    def get_tuple_val(self, widgets):
+        # helper to extract tuple from list of spinboxes/widgets
+        return tuple(w.value() for w in widgets)
 
-        @magicclass(name="Print", widget_type="scrollable")
-        class Print:
-            print_paper = vfield(PrintPapers.kodak_supra_endura, label="Print Paper", options={"tooltip": "Print paper to simulate"})
-            print_illuminant = vfield(Illuminants.lamp, label="Illuminant", options={"tooltip": "Print illuminant to simulate"})
-            print_exposure = vfield(1.0, label="Exposure", options={"step": 0.05, "tooltip": "Exposure value for the print (proportional to seconds of exposure, not ev)"})
-            print_exposure_compensation = vfield(False, label="Exposure Comp", options={"tooltip": "Apply exposure compensation from negative exposure compensation ev, allow for changing of the negative exposure compensation while keeping constant print time."})
-            print_y_filter_shift = vfield(0, label="Y Filter Shift", options={"min": -ENLARGER_STEPS, "max": ENLARGER_STEPS, "tooltip": "Y filter shift of the color enlarger from a neutral position, enlarger has 170 steps"})
-            print_m_filter_shift = vfield(0, label="M Filter Shift", options={"min": -ENLARGER_STEPS, "max": ENLARGER_STEPS, "tooltip": "M filter shift of the color enlarger from a neutral position, enlarger has 170 steps"})
-
-            preflashing_label = Label(value="\n[Preflashing]")
-            preflash_exposure = vfield(0.0, label="Exposure", options={"step": 0.005, "tooltip": "Preflash exposure value in ev for the print"})
-            preflash_y_filter_shift = vfield(0, label="Y Filter Shift", options={"min": -ENLARGER_STEPS, "tooltip": "Shift the Y filter of the enlarger from the neutral position for the preflash, typical values (-20-20), enlarger has 170 steps"})
-            preflash_m_filter_shift = vfield(0, label="M Filter Shift", options={"min": -ENLARGER_STEPS, "tooltip": "Shift the M filter of the enlarger from the neutral position for the preflash, typical values (-20-20), enlarger has 170 steps"})
-            just_preflash = vfield(False, label="Just Preflash", options={"tooltip": "Only apply preflash to the print, to visualize the preflash effect"})
-
-            glare_label = Label(value="\n[Glare]")
-            active = vfield(True, label="Active", options={"tooltip": "Add glare to the print"})
-            percent = vfield(0.10, label="Percent", options={"step": 0.05, "tooltip": "Percentage of the glare light (typically 0.1-0.25)"})
-            roughness = vfield(0.4, label="Roughness", options={"tooltip": "Roughness of the glare light (0-1)"})
-            blur = vfield(0.5, label="Blur", options={"tooltip": "Sigma of gaussian blur in pixels for the glare"})
-            compensation_removal_factor = vfield(0.0, label="Comp Removal Factor", options={"step": 0.05, "tooltip": "Factor of glare compensation removal from the print, e.g. 0.2=20% underexposed print in the shadows, typical values (0.0-0.2). To be used instead of stochastic glare (i.e. when percent=0)."})
-            compensation_removal_density = vfield(1.2, label="Comp Removal Density", options={"tooltip": "Density of the glare compensation removal from the print, typical values (1.0-1.5)."})
-            compensation_removal_transition = vfield(0.3, label="Comp Removal Transition", options={"tooltip": "Transition density range of the glare compensation removal from the print, typical values (0.1-0.5)."})
-
-        @magicclass(name="Scanner", widget_type="scrollable")
-        class Scanner:
-            scan_lens_blur = vfield(0.00, label="Lens Blur", options={"step": 0.05, "tooltip": "Sigma of gaussian filter in pixel for the scanner lens blur"})
-            scan_unsharp_mask = vfield((0.7, 0.7), label="Unsharp Mask", options={"tooltip": "Apply unsharp mask to the scan, [sigma in pixel, amount]"})
-            output_color_space = vfield(RGBColorSpaces.sRGB, label="Output Color Space", options={"tooltip": "Color space of the output image"})
-            output_cctf_encoding = vfield(True, label="Output CCTF Encoding", options={"tooltip": "Apply the cctf transfer function of the color space. If false, data is linear."})
-            compute_negative = vfield(False, label="Compute Negative", options={"tooltip": "Show a scan of the negative instead of the print"})
-            
-        @magicclass(name="Advanced", widget_type="scrollable")
-        class Advanced:
-            film_channel_swap = vfield((0, 1, 2), label="Film Channel Swap")
-            film_gamma_factor = vfield(1.0, label="Film Gamma Factor", options={"tooltip": "Gamma factor of the density curves of the negative, < 1 reduce contrast, > 1 increase contrast"})
-            print_channel_swap = vfield((0, 1, 2), label="Print Channel Swap")
-            print_gamma_factor = vfield(1.0, label="Print Gamma Factor", options={"step": 0.05, "tooltip": "Gamma factor of the print paper, < 1 reduce contrast, > 1 increase contrast"})
-            print_density_min_factor = vfield(0.4, label="Print Density Min Factor", options={"min": 0, "max": 1, "step": 0.2, "tooltip": "Minimum density factor of the print paper (0-1), make the white less white"})
-
-        @magicclass(name="Misc.", widget_type="scrollable")
-        class Misc:
-            preview_resize_factor = vfield(0.3, label="Preview Resize", options={"tooltip": "Scale image size down (0-1) to speed up preview processing"})
-            upscale_factor = vfield(1.0, label="Upscale Factor", options={"tooltip": "Scale image size up to increase resolution"})
-            crop = vfield(False, label="Crop", options={"tooltip": "Crop image to a fraction of the original size to preview details at full scale"})
-            crop_center = vfield((0.50, 0.50), label="Crop Center", options={"tooltip": "Center of the crop region in relative coordinates in x, y (0-1)"})
-            crop_size = vfield((0.1, 0.1), label="Crop Size", options={"tooltip": "Normalized size of the crop region in x, y (0,1), as fraction of the long side."})
-            input_color_space = vfield(RGBColorSpaces.ProPhotoRGB, label="Color Space", options={"tooltip": "Color space of the input image, will be internally converted to sRGB and negative values clipped"})
-            apply_cctf_decoding = vfield(False, label="Apply CCTF Decoding", options={"tooltip": "Apply the inverse cctf transfer function of the color space"})
-            spectral_upsampling_method = vfield(RGBtoRAWMethod.hanatos2025, label="Spectral Upsampling", options={"tooltip": "Method to upsample the spectral resolution of the image, hanatos2025 works on the full visible locus, mallett2019 works only on sRGB (will clip input)."})
-            filter_uv = vfield((1, 410, 8), label="Filter UV", options={"tooltip": "Filter UV light, (amplitude, wavelength cutoff in nm, sigma in nm). It mainly helps for avoiding UV light ruining the reds. Changing this enlarger filters neutral will be affected."})
-            filter_ir = vfield((1, 675, 15), label="Filter IR", options={"tooltip": "Filter IR light, (amplitude, wavelength cutoff in nm, sigma in nm). Changing this enlarger filters neutral will be affected."})
-
-    def _run_simulation(self, full_image=False):
+    def run_simulation(self):
         input_layer = None
         if self._viewer:
             for layer in self._viewer.layers:
-                if isinstance(layer, Image):
+                if isinstance(layer, Image) and layer.name == "Input Image": # Better robustness? Or just any image
                     input_layer = layer
                     break
+            if input_layer is None and len(self._viewer.layers) > 0 and isinstance(self._viewer.layers[0], Image):
+                 # Fallback to first image layer
+                 input_layer = self._viewer.layers[0]
         
         if input_layer is None:
             print("No image layer found.")
             return
 
+        # Helper to get value
+        def v(control):
+            if isinstance(control, (QComboBox)):
+                return control.currentData()
+            elif isinstance(control, (QSpinBox, QDoubleSpinBox)):
+                return control.value()
+            elif isinstance(control, QCheckBox):
+                return control.isChecked()
+            elif isinstance(control, list):
+                return self.get_tuple_val(control)
+            return None
+
         # Gather parameters
-        params = photo_params(self.Settings.Film.film_stock.value, self.Settings.Print.print_paper.value)
+        params = photo_params(v(self.film_controls.film_stock).value, v(self.print_controls.print_paper).value)
         
         # Special
-        if self.Settings.Advanced.film_channel_swap != (0, 1, 2):
-            params.negative = swap_channels(params.negative, self.Settings.Advanced.film_channel_swap)
-        if self.Settings.Advanced.print_channel_swap != (0, 1, 2):
-            params.print_paper = swap_channels(params.print_paper, self.Settings.Advanced.print_channel_swap)
+        film_swap = v(self.advanced_controls.film_channel_swap)
+        if film_swap != (0, 1, 2):
+            params.negative = swap_channels(params.negative, film_swap)
         
-        params.negative.data.tune.gamma_factor = self.Settings.Advanced.film_gamma_factor
-        params.print_paper.data.tune.gamma_factor = self.Settings.Advanced.print_gamma_factor
-        params.print_paper.data.tune.dye_density_min_factor = self.Settings.Advanced.print_density_min_factor
+        print_swap = v(self.advanced_controls.print_channel_swap)
+        if print_swap != (0, 1, 2):
+            params.print_paper = swap_channels(params.print_paper, print_swap)
+        
+        params.negative.data.tune.gamma_factor = v(self.advanced_controls.film_gamma_factor)
+        params.print_paper.data.tune.gamma_factor = v(self.advanced_controls.print_gamma_factor)
+        params.print_paper.data.tune.dye_density_min_factor = v(self.advanced_controls.print_density_min_factor)
         
         # Glare
-        params.print_paper.glare.active = self.Settings.Print.active
-        params.print_paper.glare.percent = self.Settings.Print.percent
-        params.print_paper.glare.roughness = self.Settings.Print.roughness
-        params.print_paper.glare.blur = self.Settings.Print.blur
-        params.print_paper.glare.compensation_removal_factor = self.Settings.Print.compensation_removal_factor
-        params.print_paper.glare.compensation_removal_density = self.Settings.Print.compensation_removal_density
-        params.print_paper.glare.compensation_removal_transition = self.Settings.Print.compensation_removal_transition
+        params.print_paper.glare.active = v(self.print_controls.glare_active)
+        params.print_paper.glare.percent = v(self.print_controls.percent)
+        params.print_paper.glare.roughness = v(self.print_controls.roughness)
+        params.print_paper.glare.blur = v(self.print_controls.blur)
+        params.print_paper.glare.compensation_removal_factor = v(self.print_controls.compensation_removal_factor)
+        params.print_paper.glare.compensation_removal_density = v(self.print_controls.compensation_removal_density)
+        params.print_paper.glare.compensation_removal_transition = v(self.print_controls.compensation_removal_transition)
 
         # Camera
-        params.camera.lens_blur_um = self.Settings.Film.camera_lens_blur_um
-        params.camera.exposure_compensation_ev = self.Settings.Film.exposure_compensation_ev
-        params.camera.auto_exposure = self.Settings.Film.auto_exposure
-        params.camera.auto_exposure_method = self.Settings.Film.auto_exposure_method.value
-        params.camera.film_format_mm = self.Settings.Film.film_format_mm
-        params.camera.filter_uv = self.Settings.Misc.filter_uv
-        params.camera.filter_ir = self.Settings.Misc.filter_ir
+        params.camera.lens_blur_um = v(self.film_controls.camera_lens_blur_um)
+        params.camera.exposure_compensation_ev = v(self.film_controls.exposure_compensation_ev)
+        params.camera.auto_exposure = v(self.film_controls.auto_exposure)
+        params.camera.auto_exposure_method = v(self.film_controls.auto_exposure_method).value
+        params.camera.film_format_mm = v(self.film_controls.film_format_mm)
+        params.camera.filter_uv = v(self.misc_controls.filter_uv)
+        params.camera.filter_ir = v(self.misc_controls.filter_ir)
         
         # IO
-        params.io.preview_resize_factor = self.Settings.Misc.preview_resize_factor
-        params.io.upscale_factor = self.Settings.Misc.upscale_factor
-        params.io.crop = self.Settings.Misc.crop
-        params.io.crop_center = self.Settings.Misc.crop_center
-        params.io.crop_size = self.Settings.Misc.crop_size
-        params.io.input_color_space = self.Settings.Misc.input_color_space.value
-        params.io.input_cctf_decoding = self.Settings.Misc.apply_cctf_decoding
-        params.io.output_color_space = self.Settings.Scanner.output_color_space.value
-        params.io.output_cctf_encoding = self.Settings.Scanner.output_cctf_encoding
-        params.io.full_image = full_image
-        params.io.compute_negative = self.Settings.Scanner.compute_negative
+        params.io.preview_resize_factor = v(self.misc_controls.preview_resize_factor)
+        params.io.upscale_factor = v(self.misc_controls.upscale_factor)
+        params.io.crop = v(self.misc_controls.crop)
+        params.io.crop_center = v(self.misc_controls.crop_center)
+        params.io.crop_size = v(self.misc_controls.crop_size)
+        params.io.input_color_space = v(self.misc_controls.input_color_space).value
+        params.io.input_cctf_decoding = v(self.misc_controls.apply_cctf_decoding)
+        params.io.output_color_space = v(self.scanner_controls.output_color_space).value
+        params.io.output_cctf_encoding = v(self.scanner_controls.output_cctf_encoding)
+        params.io.full_image = self.compute_full_image.isChecked()
+        params.io.compute_negative = v(self.scanner_controls.compute_negative)
         
         # Halation
-        params.negative.halation.active = self.Settings.Film.active
-        params.negative.halation.strength = np.array(self.Settings.Film.halation_strength)/100
-        params.negative.halation.size_um = np.array(self.Settings.Film.halation_size_um)
-        params.negative.halation.scattering_strength = np.array(self.Settings.Film.scattering_strength)/100
-        params.negative.halation.scattering_size_um = np.array(self.Settings.Film.scattering_size_um)
+        # Note: 'active' for halation/grain was shared in original as Settings.Film.active.
+        # I renamed it to couplers_active in setup_film_tab. 
+        # But wait, looking at original:
+        # Settings.Film.active was defined in [Couplers] section but used for halation, grain, and couplers.
+        # I should probably use that same checkbox for all if that was the intent.
+        # In my setup I made "couplers_active", "glare_active".
+        # Let's see original: 
+        # Line 148: active = vfield(True, label="Active") -> Under [Couplers] label. 
+        # Line 265: params.negative.halation.active = self.Settings.Film.active
+        # Line 272: params.negative.grain.active = self.Settings.Film.active
+        # Line 284: params.negative.dir_couplers.active = self.Settings.Film.active
+        # So yes, one active flag controls Halation, Grain, and Couplers.
+        # I should rename my 'couplers_active' to something more general or just use it.
+        
+        general_active = v(self.film_controls.couplers_active)
+
+        params.negative.halation.active = general_active
+        params.negative.halation.strength = np.array(v(self.film_controls.halation_strength))/100
+        params.negative.halation.size_um = np.array(v(self.film_controls.halation_size_um))
+        params.negative.halation.scattering_strength = np.array(v(self.film_controls.scattering_strength))/100
+        params.negative.halation.scattering_size_um = np.array(v(self.film_controls.scattering_size_um))
         
         # Grain
-        params.negative.grain.active = self.Settings.Film.active
-        params.negative.grain.sublayers_active = self.Settings.Film.sublayers_active
-        params.negative.grain.agx_particle_area_um2 = self.Settings.Film.particle_area_um2
-        params.negative.grain.agx_particle_scale = self.Settings.Film.particle_scale
-        params.negative.grain.agx_particle_scale_layers = self.Settings.Film.particle_scale_layers
-        params.negative.grain.density_min = self.Settings.Film.density_min
-        params.negative.grain.uniformity = self.Settings.Film.uniformity
-        params.negative.grain.blur = self.Settings.Film.blur
-        params.negative.grain.blur_dye_clouds_um = self.Settings.Film.blur_dye_clouds_um
-        params.negative.grain.micro_structure = self.Settings.Film.micro_structure
+        params.negative.grain.active = general_active
+        params.negative.grain.sublayers_active = v(self.film_controls.sublayers_active)
+        params.negative.grain.agx_particle_area_um2 = v(self.film_controls.particle_area_um2)
+        params.negative.grain.agx_particle_scale = v(self.film_controls.particle_scale)
+        params.negative.grain.agx_particle_scale_layers = v(self.film_controls.particle_scale_layers)
+        params.negative.grain.density_min = v(self.film_controls.density_min)
+        params.negative.grain.uniformity = v(self.film_controls.uniformity)
+        params.negative.grain.blur = v(self.film_controls.blur)
+        params.negative.grain.blur_dye_clouds_um = v(self.film_controls.blur_dye_clouds_um)
+        params.negative.grain.micro_structure = v(self.film_controls.micro_structure)
         
         # Couplers
-        params.negative.dir_couplers.active = self.Settings.Film.active
-        params.negative.dir_couplers.amount = self.Settings.Film.dir_couplers_amount 
-        params.negative.dir_couplers.ratio_rgb = self.Settings.Film.dir_couplers_ratio
-        params.negative.dir_couplers.diffusion_size_um = self.Settings.Film.dir_couplers_diffusion_um
-        params.negative.dir_couplers.diffusion_interlayer = self.Settings.Film.diffusion_interlayer
-        params.negative.dir_couplers.high_exposure_shift = self.Settings.Film.high_exposure_shift
+        params.negative.dir_couplers.active = general_active
+        params.negative.dir_couplers.amount = v(self.film_controls.dir_couplers_amount)
+        params.negative.dir_couplers.ratio_rgb = v(self.film_controls.dir_couplers_ratio)
+        params.negative.dir_couplers.diffusion_size_um = v(self.film_controls.dir_couplers_diffusion_um)
+        params.negative.dir_couplers.diffusion_interlayer = v(self.film_controls.diffusion_interlayer)
+        params.negative.dir_couplers.high_exposure_shift = v(self.film_controls.high_exposure_shift)
         
         # Enlarger
-        params.enlarger.illuminant = self.Settings.Print.print_illuminant.value
-        params.enlarger.print_exposure = self.Settings.Print.print_exposure
-        params.enlarger.print_exposure_compensation = self.Settings.Print.print_exposure_compensation
-        params.enlarger.y_filter_shift = self.Settings.Print.print_y_filter_shift
-        params.enlarger.m_filter_shift = self.Settings.Print.print_m_filter_shift
-        params.enlarger.preflash_exposure = self.Settings.Print.preflash_exposure
-        params.enlarger.preflash_y_filter_shift = self.Settings.Print.preflash_y_filter_shift
-        params.enlarger.preflash_m_filter_shift = self.Settings.Print.preflash_m_filter_shift
-        params.enlarger.just_preflash = self.Settings.Print.just_preflash
+        params.enlarger.illuminant = v(self.print_controls.print_illuminant).value
+        params.enlarger.print_exposure = v(self.print_controls.print_exposure)
+        params.enlarger.print_exposure_compensation = v(self.print_controls.print_exposure_compensation)
+        params.enlarger.y_filter_shift = v(self.print_controls.print_y_filter_shift)
+        params.enlarger.m_filter_shift = v(self.print_controls.print_m_filter_shift)
+        params.enlarger.preflash_exposure = v(self.print_controls.preflash_exposure)
+        params.enlarger.preflash_y_filter_shift = v(self.print_controls.preflash_y_filter_shift)
+        params.enlarger.preflash_m_filter_shift = v(self.print_controls.preflash_m_filter_shift)
+        params.enlarger.just_preflash = v(self.print_controls.just_preflash)
         
         # Scanner
-        params.scanner.lens_blur = self.Settings.Scanner.scan_lens_blur
-        params.scanner.unsharp_mask = self.Settings.Scanner.scan_unsharp_mask
+        params.scanner.lens_blur = v(self.scanner_controls.scan_lens_blur)
+        params.scanner.unsharp_mask = v(self.scanner_controls.scan_unsharp_mask)
         
         # Settings
-        params.settings.rgb_to_raw_method = self.Settings.Misc.spectral_upsampling_method.value
+        params.settings.rgb_to_raw_method = v(self.misc_controls.spectral_upsampling_method).value
         params.settings.use_camera_lut = False
         params.settings.use_enlarger_lut = True
         params.settings.use_scanner_lut = True
@@ -333,6 +538,8 @@ class AgXEmulsionConfiguration:
         def on_error(e):
             pbr.close()
             print(f"Error during simulation: {e}")
+            import traceback
+            traceback.print_exc()
 
         # Run async
         worker = self._process_image(image, params, progress_signal=self.signals.progress)
@@ -368,8 +575,7 @@ def main():
     settings.appearance.theme = 'system'
 
     # Instantiate the GUI
-    configuration = AgXEmulsionConfiguration()
-    configuration._viewer = viewer
+    configuration = AgXEmulsionConfiguration(viewer)
     
     # Add widgets to viewer
     viewer.window.add_dock_widget(configuration, area="right", name="Configuration", tabify=False)
