@@ -153,14 +153,13 @@ class AgXEmulsionConfiguration(QWidget):
             storage[key] = cb
         return cb
 
-    def add_tuple_spin(self, layout, label, value_tuple, min_val=0.0, max_val=100.0, step=1.0, tooltip="", key=None, storage=None):
+    def add_tuple_spin(self, layout, label, value_tuple, min_val=0.0, max_val=100.0, step=1.0, tooltip="", key=None, storage=None, value_labels=None):
         container = QWidget()
-        h_layout = QHBoxLayout(container)
-        h_layout.setContentsMargins(0, 0, 0, 0)
+        v_layout = QVBoxLayout(container)
+        v_layout.setContentsMargins(0, 0, 0, 0)
         
         spins = []
-        spins = []
-        for val in value_tuple:
+        for i, val in enumerate(value_tuple):
             if isinstance(val, float):
                 s = QDoubleSpinBox()
                 s.setDecimals(2)
@@ -172,7 +171,18 @@ class AgXEmulsionConfiguration(QWidget):
                 s.setRange(int(min_val), int(max_val))
             s.setValue(val)
             s.setToolTip(tooltip)
-            h_layout.addWidget(s)
+            
+            if value_labels and i < len(value_labels):
+                row_widget = QWidget()
+                row_layout = QHBoxLayout(row_widget)
+                row_layout.setContentsMargins(0, 0, 0, 0)
+                lbl = QLabel(value_labels[i])
+                row_layout.addWidget(lbl)
+                row_layout.addWidget(s)
+                v_layout.addWidget(row_widget)
+            else:
+                v_layout.addWidget(s)
+                
             spins.append(s)
             
         layout.addRow(label, container)
@@ -208,22 +218,22 @@ class AgXEmulsionConfiguration(QWidget):
         # s is still self.film_controls, sharing the same storage
         self.add_checkbox(grain_layout, "Sublayers Active", True, "", "sublayers_active", s)
         self.add_spin(grain_layout, "Particle Area (um2)", 0.1, 0.0, 100.0, 0.1, 2, "Area of the particles in um2, relates to ISO", "particle_area_um2", s)
-        self.add_tuple_spin(grain_layout, "Particle Scale", (0.8, 1.0, 2.0), 0.0, 100.0, 0.1, "Scale of particle area for the RGB layers", "particle_scale", s)
-        self.add_tuple_spin(grain_layout, "Particle Scale Layers", (2.5, 1.0, 0.5), 0.0, 100.0, 0.1, "Scale of particle area for the sublayers", "particle_scale_layers", s)
-        self.add_tuple_spin(grain_layout, "Density Min", (0.07, 0.08, 0.12), 0.0, 1.0, 0.01, "Minimum density of the grain", "density_min", s)
-        self.add_tuple_spin(grain_layout, "Uniformity", (0.97, 0.97, 0.99), 0.0, 1.0, 0.01, "Uniformity of the grain", "uniformity", s)
+        self.add_tuple_spin(grain_layout, "Particle Scale", (0.8, 1.0, 2.0), 0.0, 100.0, 0.1, "Scale of particle area for the RGB layers", "particle_scale", s, value_labels=("R", "G", "B"))
+        self.add_tuple_spin(grain_layout, "Particle Scale Layers", (2.5, 1.0, 0.5), 0.0, 100.0, 0.1, "Scale of particle area for the sublayers", "particle_scale_layers", s, value_labels=("R", "G", "B"))
+        self.add_tuple_spin(grain_layout, "Density Min", (0.07, 0.08, 0.12), 0.0, 1.0, 0.01, "Minimum density of the grain", "density_min", s, value_labels=("R", "G", "B"))
+        self.add_tuple_spin(grain_layout, "Uniformity", (0.97, 0.97, 0.99), 0.0, 1.0, 0.01, "Uniformity of the grain", "uniformity", s, value_labels=("R", "G", "B"))
         self.add_spin(grain_layout, "Blur", 0.65, 0.0, 100.0, 0.05, 2, "Sigma of gaussian blur in pixels for the grain", "blur", s)
         self.add_spin(grain_layout, "Blur Dye Clouds (um)", 1.0, 0.0, 100.0, 0.1, 2, "Scale the sigma of gaussian blur in um for the dye clouds", "blur_dye_clouds_um", s)
-        self.add_tuple_spin(grain_layout, "Micro Structure", (0.1, 30), 0.0, 100.0, 0.1, "Parameter for micro-structure", "micro_structure", s)
+        self.add_tuple_spin(grain_layout, "Micro Structure", (0.1, 30), 0.0, 100.0, 0.1, "Parameter for micro-structure", "micro_structure", s, value_labels=("Sigma", "Size"))
         sub_tabs.addTab(self.create_scroll_area(grain_tab), "Grain")
         
         # --- Halation Tab ---
         halation_tab = QWidget()
         halation_layout = QFormLayout(halation_tab)
-        self.add_tuple_spin(halation_layout, "Scattering Strength", (1.0, 2.0, 4.0), 0.0, 100.0, 0.1, "Fraction of scattered light (0-100)", "scattering_strength", s)
-        self.add_tuple_spin(halation_layout, "Scattering Size (um)", (30, 20, 15), 0.0, 1000.0, 1.0, "Size of the scattering effect in micrometers", "scattering_size_um", s)
-        self.add_tuple_spin(halation_layout, "Halation Strength", (10.0, 7.30, 7.1), 0.0, 100.0, 0.1, "Fraction of halation light (0-100)", "halation_strength", s)
-        self.add_tuple_spin(halation_layout, "Halation Size (um)", (200, 200, 200), 0.0, 2000.0, 1.0, "Size of the halation effect in micrometers", "halation_size_um", s)
+        self.add_tuple_spin(halation_layout, "Scattering Strength", (1.0, 2.0, 4.0), 0.0, 100.0, 0.1, "Fraction of scattered light (0-100)", "scattering_strength", s, value_labels=("R", "G", "B"))
+        self.add_tuple_spin(halation_layout, "Scattering Size (um)", (30, 20, 15), 0.0, 1000.0, 1.0, "Size of the scattering effect in micrometers", "scattering_size_um", s, value_labels=("R", "G", "B"))
+        self.add_tuple_spin(halation_layout, "Halation Strength", (10.0, 7.30, 7.1), 0.0, 100.0, 0.1, "Fraction of halation light (0-100)", "halation_strength", s, value_labels=("R", "G", "B"))
+        self.add_tuple_spin(halation_layout, "Halation Size (um)", (200, 200, 200), 0.0, 2000.0, 1.0, "Size of the halation effect in micrometers", "halation_size_um", s, value_labels=("R", "G", "B"))
         sub_tabs.addTab(self.create_scroll_area(halation_tab), "Halation")
 
         # --- Couplers Tab ---
@@ -231,7 +241,7 @@ class AgXEmulsionConfiguration(QWidget):
         couplers_layout = QFormLayout(couplers_tab)
         self.add_checkbox(couplers_layout, "Active", True, "", "couplers_active", s)
         self.add_spin(couplers_layout, "Amount", 1.0, 0.0, 10.0, 0.05, 2, "Amount of coupler inhibitors", "dir_couplers_amount", s)
-        self.add_tuple_spin(couplers_layout, "Ratio", (1.0, 1.0, 1.0), 0.0, 10.0, 0.1, "", "dir_couplers_ratio", s)
+        self.add_tuple_spin(couplers_layout, "Ratio", (1.0, 1.0, 1.0), 0.0, 10.0, 0.1, "", "dir_couplers_ratio", s, value_labels=("R", "G", "B"))
         self.add_spin(couplers_layout, "Diffusion (um)", 10, 0, 1000, 5, 0, "Sigma in um for the diffusion of the couplers", "dir_couplers_diffusion_um", s)
         self.add_spin(couplers_layout, "Diffusion Interlayer", 2.0, 0.0, 100.0, 0.1, 2, "Sigma for diffusion across rgb layers", "diffusion_interlayer", s)
         self.add_spin(couplers_layout, "High Exposure Shift", 0.0, -10.0, 10.0, 0.1, 2, "", "high_exposure_shift", s)
@@ -242,33 +252,51 @@ class AgXEmulsionConfiguration(QWidget):
         self.tabs.addTab(main_widget, "Film")
 
     def setup_print_tab(self):
-        widget = QWidget()
-        layout = QFormLayout(widget)
+        # Main widget for the Print tab
+        main_widget = QWidget()
+        main_layout = QVBoxLayout(main_widget)
+        
+        # General Settings Section
+        general_group = QGroupBox()
+        general_layout = QFormLayout(general_group)
         s = self.print_controls
 
-        self.add_combo(layout, "Print Paper", PrintPapers, PrintPapers.kodak_supra_endura, "Print paper to simulate", "print_paper", s)
-        self.add_combo(layout, "Illuminant", Illuminants, Illuminants.lamp, "Print illuminant to simulate", "print_illuminant", s)
-        self.add_spin(layout, "Exposure", 1.0, 0.0, 100.0, 0.05, 2, "Exposure value for the print", "print_exposure", s)
-        self.add_checkbox(layout, "Exposure Comp", False, "Apply exposure compensation from negative", "print_exposure_compensation", s)
-        self.add_spin(layout, "Y Filter Shift", 0, -ENLARGER_STEPS, ENLARGER_STEPS, 1, 0, "Y filter shift", "print_y_filter_shift", s)
-        self.add_spin(layout, "M Filter Shift", 0, -ENLARGER_STEPS, ENLARGER_STEPS, 1, 0, "M filter shift", "print_m_filter_shift", s)
+        self.add_combo(general_layout, "Print Paper", PrintPapers, PrintPapers.kodak_supra_endura, "Print paper to simulate", "print_paper", s)
+        self.add_combo(general_layout, "Illuminant", Illuminants, Illuminants.lamp, "Print illuminant to simulate", "print_illuminant", s)
+        self.add_spin(general_layout, "Exposure", 1.0, 0.0, 100.0, 0.05, 2, "Exposure value for the print", "print_exposure", s)
+        self.add_checkbox(general_layout, "Exposure Comp", False, "Apply exposure compensation from negative", "print_exposure_compensation", s)
+        self.add_spin(general_layout, "Y Filter Shift", 0, -ENLARGER_STEPS, ENLARGER_STEPS, 1, 0, "Y filter shift", "print_y_filter_shift", s)
+        self.add_spin(general_layout, "M Filter Shift", 0, -ENLARGER_STEPS, ENLARGER_STEPS, 1, 0, "M filter shift", "print_m_filter_shift", s)
 
-        layout.addRow(QLabel("<b>[Preflashing]</b>"))
-        self.add_spin(layout, "Exposure", 0.0, 0.0, 100.0, 0.005, 3, "Preflash exposure value", "preflash_exposure", s)
-        self.add_spin(layout, "Y Filter Shift", 0, -ENLARGER_STEPS, ENLARGER_STEPS, 1, 0, "Shift Y filter for preflash", "preflash_y_filter_shift", s)
-        self.add_spin(layout, "M Filter Shift", 0, -ENLARGER_STEPS, ENLARGER_STEPS, 1, 0, "Shift M filter for preflash", "preflash_m_filter_shift", s)
-        self.add_checkbox(layout, "Just Preflash", False, "Only apply preflash", "just_preflash", s)
+        main_layout.addWidget(general_group)
 
-        layout.addRow(QLabel("<b>[Glare]</b>"))
-        self.add_checkbox(layout, "Active", True, "Add glare to the print", "glare_active", s)
-        self.add_spin(layout, "Percent", 0.10, 0.0, 1.0, 0.05, 2, "Percentage of the glare light", "percent", s)
-        self.add_spin(layout, "Roughness", 0.4, 0.0, 1.0, 0.05, 2, "Roughness of the glare light", "roughness", s)
-        self.add_spin(layout, "Blur", 0.5, 0.0, 100.0, 0.1, 2, "Sigma of gaussian blur", "blur", s)
-        self.add_spin(layout, "Comp Removal Factor", 0.0, 0.0, 1.0, 0.05, 2, "Factor of glare compensation removal", "compensation_removal_factor", s)
-        self.add_spin(layout, "Comp Removal Density", 1.2, 0.0, 10.0, 0.1, 2, "Density of the glare compensation removal", "compensation_removal_density", s)
-        self.add_spin(layout, "Comp Removal Transition", 0.3, 0.0, 10.0, 0.1, 2, "Transition density range", "compensation_removal_transition", s)
+        # Nested Tabs
+        sub_tabs = QTabWidget()
 
-        self.tabs.addTab(self.create_scroll_area(widget), "Print")
+        # --- Preflashing Tab ---
+        preflash_tab = QWidget()
+        preflash_layout = QFormLayout(preflash_tab)
+        self.add_spin(preflash_layout, "Exposure", 0.0, 0.0, 100.0, 0.005, 3, "Preflash exposure value", "preflash_exposure", s)
+        self.add_spin(preflash_layout, "Y Filter Shift", 0, -ENLARGER_STEPS, ENLARGER_STEPS, 1, 0, "Shift Y filter for preflash", "preflash_y_filter_shift", s)
+        self.add_spin(preflash_layout, "M Filter Shift", 0, -ENLARGER_STEPS, ENLARGER_STEPS, 1, 0, "Shift M filter for preflash", "preflash_m_filter_shift", s)
+        self.add_checkbox(preflash_layout, "Just Preflash", False, "Only apply preflash", "just_preflash", s)
+        sub_tabs.addTab(self.create_scroll_area(preflash_tab), "Preflashing")
+
+        # --- Glare Tab ---
+        glare_tab = QWidget()
+        glare_layout = QFormLayout(glare_tab)
+        self.add_checkbox(glare_layout, "Active", True, "Add glare to the print", "glare_active", s)
+        self.add_spin(glare_layout, "Percent", 0.10, 0.0, 1.0, 0.05, 2, "Percentage of the glare light", "percent", s)
+        self.add_spin(glare_layout, "Roughness", 0.4, 0.0, 1.0, 0.05, 2, "Roughness of the glare light", "roughness", s)
+        self.add_spin(glare_layout, "Blur", 0.5, 0.0, 100.0, 0.1, 2, "Sigma of gaussian blur", "blur", s)
+        self.add_spin(glare_layout, "Comp Removal Factor", 0.0, 0.0, 1.0, 0.05, 2, "Factor of glare compensation removal", "compensation_removal_factor", s)
+        self.add_spin(glare_layout, "Comp Removal Density", 1.2, 0.0, 10.0, 0.1, 2, "Density of the glare compensation removal", "compensation_removal_density", s)
+        self.add_spin(glare_layout, "Comp Removal Transition", 0.3, 0.0, 10.0, 0.1, 2, "Transition density range", "compensation_removal_transition", s)
+        sub_tabs.addTab(self.create_scroll_area(glare_tab), "Glare")
+
+        main_layout.addWidget(sub_tabs)
+
+        self.tabs.addTab(main_widget, "Print")
 
     def setup_scanner_tab(self):
         widget = QWidget()
@@ -276,7 +304,7 @@ class AgXEmulsionConfiguration(QWidget):
         s = self.scanner_controls
 
         self.add_spin(layout, "Lens Blur", 0.00, 0.0, 100.0, 0.05, 2, "Sigma of gaussian filter in pixel", "scan_lens_blur", s)
-        self.add_tuple_spin(layout, "Unsharp Mask", (0.7, 0.7), 0.0, 100.0, 0.1, "Apply unsharp mask [sigma, amount]", "scan_unsharp_mask", s)
+        self.add_tuple_spin(layout, "Unsharp Mask", (0.7, 0.7), 0.0, 100.0, 0.1, "Apply unsharp mask [sigma, amount]", "scan_unsharp_mask", s, value_labels=("Sigma", "Amount"))
         self.add_combo(layout, "Output Color Space", RGBColorSpaces, RGBColorSpaces.sRGB, "Color space of the output image", "output_color_space", s)
         self.add_checkbox(layout, "Output CCTF Encoding", True, "Apply the cctf transfer function", "output_cctf_encoding", s)
         self.tabs.addTab(self.create_scroll_area(widget), "Scanner")
@@ -286,9 +314,9 @@ class AgXEmulsionConfiguration(QWidget):
         layout = QFormLayout(widget)
         s = self.advanced_controls
 
-        self.add_tuple_spin(layout, "Film Channel Swap", (0, 1, 2), 0, 2, 1, "", "film_channel_swap", s)
+        self.add_tuple_spin(layout, "Film Channel Swap", (0, 1, 2), 0, 2, 1, "", "film_channel_swap", s, value_labels=("0", "1", "2"))
         self.add_spin(layout, "Film Gamma Factor", 1.0, 0.0, 10.0, 0.05, 2, "Gamma factor of the density curves", "film_gamma_factor", s)
-        self.add_tuple_spin(layout, "Print Channel Swap", (0, 1, 2), 0, 2, 1, "", "print_channel_swap", s)
+        self.add_tuple_spin(layout, "Print Channel Swap", (0, 1, 2), 0, 2, 1, "", "print_channel_swap", s, value_labels=("0", "1", "2"))
         self.add_spin(layout, "Print Gamma Factor", 1.0, 0.0, 10.0, 0.05, 2, "Gamma factor of the print paper", "print_gamma_factor", s)
         self.add_spin(layout, "Print Density Min Factor", 0.4, 0.0, 1.0, 0.2, 2, "Minimum density factor", "print_density_min_factor", s)
 
@@ -302,13 +330,13 @@ class AgXEmulsionConfiguration(QWidget):
         self.add_spin(layout, "Preview Resize", 0.3, 0.0, 1.0, 0.1, 2, "Scale image size down", "preview_resize_factor", s)
         self.add_spin(layout, "Upscale Factor", 1.0, 0.1, 10.0, 0.1, 2, "Scale image size up", "upscale_factor", s)
         self.add_checkbox(layout, "Crop", False, "Crop image", "crop", s)
-        self.add_tuple_spin(layout, "Crop Center", (0.50, 0.50), 0.0, 1.0, 0.01, "Center of the crop region", "crop_center", s)
-        self.add_tuple_spin(layout, "Crop Size", (0.1, 0.1), 0.0, 1.0, 0.01, "Normalized size of the crop region", "crop_size", s)
+        self.add_tuple_spin(layout, "Crop Center", (0.50, 0.50), 0.0, 1.0, 0.01, "Center of the crop region", "crop_center", s, value_labels=("X", "Y"))
+        self.add_tuple_spin(layout, "Crop Size", (0.1, 0.1), 0.0, 1.0, 0.01, "Normalized size of the crop region", "crop_size", s, value_labels=("X", "Y"))
         self.add_combo(layout, "Color Space", RGBColorSpaces, RGBColorSpaces.ProPhotoRGB, "Color space of the input image", "input_color_space", s)
         self.add_checkbox(layout, "Apply CCTF Decoding", False, "Apply the inverse cctf transfer function", "apply_cctf_decoding", s)
         self.add_combo(layout, "Spectral Upsampling", RGBtoRAWMethod, RGBtoRAWMethod.hanatos2025, "Method to upsample the spectral resolution", "spectral_upsampling_method", s)
-        self.add_tuple_spin(layout, "Filter UV", (1, 410, 8), 0, 1000, 1, "Filter UV light", "filter_uv", s)
-        self.add_tuple_spin(layout, "Filter IR", (1, 675, 15), 0, 1000, 1, "Filter IR light", "filter_ir", s)
+        self.add_tuple_spin(layout, "Filter UV", (1, 410, 8), 0, 1000, 1, "Filter UV light", "filter_uv", s, value_labels=("Amp", "Wavelen", "Sigma"))
+        self.add_tuple_spin(layout, "Filter IR", (1, 675, 15), 0, 1000, 1, "Filter IR light", "filter_ir", s, value_labels=("Amp", "Wavelen", "Sigma"))
 
         self.tabs.addTab(self.create_scroll_area(widget), "Misc.")
 
