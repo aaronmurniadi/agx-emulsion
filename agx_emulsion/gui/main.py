@@ -51,20 +51,61 @@ class AgXEmulsionConfiguration:
 
     @magicclass(name="Input Image", layout="horizontal")
     class Input:
-        filename = field(Path("./"), label="File", options={"mode": "r"})
+        filename = field(Path("./"), label="File", options={"mode": "r", "filter": "*.tif;*.tiff;*.jpg;*.jpeg;*.png;*.arw;*.cr2;*.nef;*.dng"})
         
         def load_image(self):
             """Load the image from the specified file."""
             if not self.filename.value.exists() or self.filename.value.is_dir():
                 return
-            img_array = load_image_oiio(str(self.filename.value))
-            img_array = img_array[..., :3]
+                
+            file_path = str(self.filename.value)
+            ext = self.filename.value.suffix.lower()
+            
+            img_array = None
+            
+            # Check for RAW file extensions
+            raw_extensions = ['.arw', '.cr2', '.nef', '.dng']
+            if ext in raw_extensions:
+                try:
+                    import sys
+                    import importlib.util
+                    
+                    # Locate the scripts/prepare_input.py file relative to this file
+                    # agx_emulsion/gui/main.py -> ../../scripts/prepare_input.py
+                    current_dir = Path(__file__).parent
+                    script_path = current_dir.parent.parent / "scripts" / "prepare_input.py"
+                    
+                    if not script_path.exists():
+                        print(f"Error: Could not find prepare_input.py at {script_path}")
+                        return
 
-            # Get the viewer from the parent
-            viewer = self.__magicclass_parent__._viewer
-            if viewer:
-                viewer.add_image(img_array, name="Input Image")
-                viewer.reset_view()
+                    # Dynamic import
+                    spec = importlib.util.spec_from_file_location("prepare_input", script_path)
+                    prepare_input = importlib.util.module_from_spec(spec)
+                    sys.modules["prepare_input"] = prepare_input
+                    spec.loader.exec_module(prepare_input)
+                    
+                    print(f"Loading RAW image: {file_path}")
+                    # Process the raw image
+                    img_array = prepare_input.process_raw_image(file_path)
+                    
+                except Exception as e:
+                    print(f"Error loading RAW file: {e}")
+                    return
+            else:
+                img_array = load_image_oiio(file_path)
+                img_array = img_array[..., :3]
+
+            if img_array is not None:
+                # Get the viewer from the parent
+                viewer = self.__magicclass_parent__._viewer
+                if viewer:
+                    # Remove existing Input Image layer if present
+                    if "Input Image" in viewer.layers:
+                        viewer.layers.remove("Input Image")
+                        
+                    viewer.add_image(img_array, name="Input Image")
+                    viewer.reset_view()
 
     @magicclass(labels=False, name="Run", layout="horizontal")
     class Run:
@@ -142,7 +183,7 @@ class AgXEmulsionConfiguration:
             output_color_space = vfield(RGBColorSpaces.sRGB, label="Output Color Space", options={"tooltip": "Color space of the output image"})
             output_cctf_encoding = vfield(True, label="Output CCTF Encoding", options={"tooltip": "Apply the cctf transfer function of the color space. If false, data is linear."})
             compute_negative = vfield(False, label="Compute Negative", options={"tooltip": "Show a scan of the negative instead of the print"})
-
+            
         @magicclass(name="Advanced", widget_type="scrollable")
         class Advanced:
             film_channel_swap = vfield((0, 1, 2), label="Film Channel Swap")
