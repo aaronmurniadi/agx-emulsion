@@ -57,7 +57,6 @@ class AgXEmulsionConfiguration(QWidget):
         layout = QVBoxLayout(self)
 
         # Input Section
-        input_group = QGroupBox("Input Image")
         input_layout = QHBoxLayout()
         
         self.file_path_label = QLabel("No file selected")
@@ -68,11 +67,9 @@ class AgXEmulsionConfiguration(QWidget):
         input_layout.addWidget(QLabel("File:"))
         input_layout.addWidget(self.file_path_label)
         input_layout.addWidget(browse_btn)
-        input_group.setLayout(input_layout)
-        layout.addWidget(input_group)
+        layout.addLayout(input_layout)
 
         # Run Section
-        run_group = QGroupBox("Run")
         run_layout = QHBoxLayout()
         
         run_btn = QPushButton("Run Simulation")
@@ -82,8 +79,7 @@ class AgXEmulsionConfiguration(QWidget):
         
         run_layout.addWidget(run_btn)
         run_layout.addWidget(self.compute_full_image)
-        run_group.setLayout(run_layout)
-        layout.addWidget(run_group)
+        layout.addLayout(run_layout)
 
         # Settings Tabs
         self.tabs = QTabWidget()
@@ -177,6 +173,7 @@ class AgXEmulsionConfiguration(QWidget):
                 row_layout = QHBoxLayout(row_widget)
                 row_layout.setContentsMargins(0, 0, 0, 0)
                 lbl = QLabel(value_labels[i])
+                lbl.setStyleSheet("font-size: 80%; color: #888;")
                 row_layout.addWidget(lbl)
                 row_layout.addWidget(s)
                 v_layout.addWidget(row_widget)
