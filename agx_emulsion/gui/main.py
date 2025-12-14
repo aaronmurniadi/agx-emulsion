@@ -75,12 +75,12 @@ class AgXEmulsionConfiguration(QWidget):
         run_layout = QHBoxLayout()
         run_layout.setContentsMargins(0, 0, 0, 0)
         
-        run_btn = QPushButton("Run Simulation")
-        run_btn.clicked.connect(self.run_simulation)
+        self.run_btn = QPushButton("Run Simulation")
+        self.run_btn.clicked.connect(self.run_simulation)
         self.compute_full_image = QCheckBox("Compute Full Image")
         self.compute_full_image.setToolTip("Do not apply preview resize, compute full resolution image. Keeps the crop if active.")
         
-        run_layout.addWidget(run_btn)
+        run_layout.addWidget(self.run_btn)
         run_layout.addWidget(self.compute_full_image)
         layout.addLayout(run_layout)
 
@@ -556,6 +556,9 @@ class AgXEmulsionConfiguration(QWidget):
 
         image = np.double(input_layer.data[:,:,:3])
         
+        # Disable the run button
+        self.run_btn.setEnabled(False)
+        
         # Create signals and progress bar
         self.signals = WorkerSignals()
         pbr = progress(total=0)
@@ -569,12 +572,14 @@ class AgXEmulsionConfiguration(QWidget):
         
         def on_finished(scan):
             pbr.close()
+            self.run_btn.setEnabled(True)
             self._on_process_finished(scan)
             if self._viewer:
                 self._viewer.reset_view()
             
         def on_error(e):
             pbr.close()
+            self.run_btn.setEnabled(True)
             print(f"Error during simulation: {e}")
             import traceback
             traceback.print_exc()
