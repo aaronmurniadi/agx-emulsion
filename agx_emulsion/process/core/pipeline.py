@@ -55,11 +55,11 @@ class Pipeline:
                         is_chunked = True
                         image = None
                     
-                    # Process
+                    # Process chunks and free old chunks immediately
                     new_chunks = []
                     for y, x, chunk in chunks:
                         new_chunks.append((y, x, node.process(chunk, context)))
-                    chunks = new_chunks
+                    chunks = new_chunks  # Replace chunks list to free old chunks
                     
                 else:
                     if is_chunked:
@@ -82,10 +82,11 @@ class Pipeline:
                             if len(chunk.shape) > 2:
                                 channels = chunk.shape[2]
                         
+                        # Use empty instead of zeros since we immediately fill with chunks
                         if channels > 0:
-                            image = np.zeros((total_h, total_w, channels), dtype=dtype)
+                            image = np.empty((total_h, total_w, channels), dtype=dtype)
                         else:
-                            image = np.zeros((total_h, total_w), dtype=dtype)
+                            image = np.empty((total_h, total_w), dtype=dtype)
                             
                         for y, x, chunk in chunks:
                             ch_h, ch_w = chunk.shape[:2]
@@ -118,10 +119,11 @@ class Pipeline:
                     if len(chunk.shape) > 2:
                         channels = chunk.shape[2]
                 
+                # Use empty instead of zeros since we immediately fill with chunks
                 if channels > 0:
-                    image = np.zeros((total_h, total_w, channels), dtype=dtype)
+                    image = np.empty((total_h, total_w, channels), dtype=dtype)
                 else:
-                    image = np.zeros((total_h, total_w), dtype=dtype)
+                    image = np.empty((total_h, total_w), dtype=dtype)
                     
                 for y, x, chunk in chunks:
                     ch_h, ch_w = chunk.shape[:2]

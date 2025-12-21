@@ -37,7 +37,7 @@ def remove_viewing_glare_comp(le, dc, factor=0.2, density=1.0, transition=0.3):
     le_step = np.mean(np.diff(le))
     dc_out = np.zeros_like(dc)
     for i in np.arange(3):
-        le_nl = np.copy(le)
+        le_nl = le.copy()  # More explicit than np.copy
         le_nl[le>le_center] -= (le[le>le_center]-le_center)*factor
         le_transition = transition/slope
         le_nl = scipy.ndimage.gaussian_filter(le_nl, le_transition/le_step)
@@ -78,12 +78,13 @@ def develop_simple(profile, log_raw):
 
 class AgXEmulsion():
     def __init__(self, profile):
-        self.sensitivity = 10**np.array(profile.data.log_sensitivity)
-        self.dye_density = np.array(profile.data.dye_density)
-        self.density_curves = np.array(profile.data.density_curves)
-        self.density_curves_layers = np.array(profile.data.density_curves_layers)
-        self.log_exposure = np.array(profile.data.log_exposure)
-        self.wavelengths = np.array(profile.data.wavelengths)
+        # Use asarray to avoid copy if already numpy arrays
+        self.sensitivity = 10**np.asarray(profile.data.log_sensitivity)
+        self.dye_density = np.asarray(profile.data.dye_density)
+        self.density_curves = np.asarray(profile.data.density_curves)
+        self.density_curves_layers = np.asarray(profile.data.density_curves_layers)
+        self.log_exposure = np.asarray(profile.data.log_exposure)
+        self.wavelengths = np.asarray(profile.data.wavelengths)
         
         self.parametric = profile.parametric
         self.type = profile.info.type

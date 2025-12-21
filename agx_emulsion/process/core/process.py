@@ -87,17 +87,21 @@ def photo_params(negative='kodak_portra_400_auc',
 
 class AgXPhoto():
     def __init__(self, params):
-        self._params = copy.deepcopy(params)
+        # Use shallow copy for params structure, deep copy only profiles that will be modified
+        self._params = copy.copy(params)
+        # Deep copy only the profiles that will be modified by debug switches
+        self._params.negative = copy.deepcopy(params.negative)
+        self._params.print_paper = copy.deepcopy(params.print_paper)
         # main components
-        self.camera = params.camera
-        self.negative = params.negative
-        self.enlarger = params.enlarger
-        self.print_paper = params.print_paper
-        self.scanner = params.scanner
+        self.camera = self._params.camera
+        self.negative = self._params.negative
+        self.enlarger = self._params.enlarger
+        self.print_paper = self._params.print_paper
+        self.scanner = self._params.scanner
         # auxiliary and special
-        self.io = params.io
-        self.debug = params.debug
-        self.settings = params.settings
+        self.io = self._params.io
+        self.debug = self._params.debug
+        self.settings = self._params.settings
         self.timings = {} # dictionary to hold timing info
         self._apply_debug_switches()
 
@@ -120,7 +124,20 @@ class AgXPhoto():
             self.print_paper.glare.active = False
 
     def process(self, image, progress_callback=None):
-        image = np.double(np.array(image)[:,:,0:3])
+        # Optimize array conversion: avoid unnecessary copies
+        if not isinstance(image, np.ndarray):
+            image = np.asarray(image, dtype=np.float64)
+        elif image.dtype != np.float64:
+            # Only convert dtype if necessary
+            image = image.astype(np.float64, copy=False)
+        
+        # Ensure 3 channels (RGB) - match original behavior
+        if image.ndim == 2:
+            # Grayscale: add channel dimension
+            image = image[:,:,np.newaxis]
+        elif image.ndim == 3 and image.shape[2] > 3:
+            # More than 3 channels: take first 3 (original behavior)
+            image = image[:,:,:3]
         
         # Initialize pipeline
         pipeline = Pipeline()

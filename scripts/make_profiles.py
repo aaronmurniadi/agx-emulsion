@@ -11,7 +11,7 @@ from agx_emulsion.process.utils.fit_print_filters import fit_print_filters
 from agx_emulsion.process.physics.illuminants import standard_illuminant
 from agx_emulsion.process.utils.io import save_ymc_filter_values
 
-process_print_paper = True
+process_print_paper = False
 process_negative = True
 process_ymc_filters = True
 
@@ -66,8 +66,8 @@ stock_info = [
               ('fujifilm_pro_400h',      'Fujifilm Pro 400H',         '',      'generic_a', None,               None,                1.0,        'D55',  'kodak_portra_endura_uc',    'mid',         0.3,         False),
               ('fujifilm_xtra_400',      'Fujifilm X-Tra 400',        '',      'generic_a', None,               None,                1.0,        'D55',  'kodak_portra_endura_uc',    None,          0.3,         False),
               ('fujifilm_c200',          'Fujifilm C200',             '',      'generic_a', None,               None,                1.0,        'D55',  'kodak_portra_endura_uc',    'green',       0.3,         False),
-              ('kodak_100t_5247',        'Kodak 100T 5247',           '',      None       , None,               None,                0.2,        'T',  'kodak_portra_endura_uc',    None,          0.3,         True),
-              ('kodak_pro_image_100',    'Kodak Pro Image 100',       '',      'generic_a', None,               None,                0.2,        'D55',  'kodak_portra_endura_uc',    None,          0.3,         True),
+              ('kodak_100t_5247',        'Kodak 100T 5247',           '',      'generic_a', None,               None,                0.2,        'T',  'kodak_portra_endura_uc',      'mid',         1.0,         True),
+              ('kodak_pro_image_100',    'Kodak Pro Image 100',       '',      'generic_a', None,               None,                0.2,        'D55',  'kodak_portra_endura_uc',    None,          0.3,         False),
               ]
 
 if process_negative:

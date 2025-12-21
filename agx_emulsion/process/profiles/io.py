@@ -6,12 +6,18 @@ import importlib.resources as pkg_resources
 import math
 
 
-def replace_nan_with_none(obj):
-    """Recursively replace NaN values with None (which JSON serializes as null)"""
+def replace_nan_and_none(obj):
+    """
+    Recursively replaces:
+        - None with np.nan
+        - NaN (float or np.nan) with None
+    """
     if isinstance(obj, list):
-        return [replace_nan_with_none(x) for x in obj]
+        return [replace_nan_and_none(x) for x in obj]
     elif isinstance(obj, dict):
-        return {k: replace_nan_with_none(v) for k, v in obj.items()}
+        return {k: replace_nan_and_none(v) for k, v in obj.items()}
+    elif obj is None:
+        return np.nan
     elif isinstance(obj, float) and (math.isnan(obj) or np.isnan(obj)):
         return None
     else:
@@ -33,7 +39,7 @@ def save_profile(profile, suffix=""):
     resource = package / filename
     print("Saving to:", filename)
     profile_dict = profile.toDict()
-    profile_dict = replace_nan_with_none(profile_dict)
+    profile_dict = replace_nan_and_none(profile_dict)
     with resource.open("w") as file:
         json.dump(profile_dict, file, indent=4)
 
@@ -46,23 +52,14 @@ def load_profile(stock):
     with resource.open("r") as file:
         data = json.load(file)
 
-    def fix_nones(obj):
-        if isinstance(obj, list):
-            return [fix_nones(x) for x in obj]
-        elif isinstance(obj, dict):
-            return {k: fix_nones(v) for k, v in obj.items()}
-        elif obj is None:
-            return np.nan
-        else:
-            return obj
-
-    data = fix_nones(data)
+    data = replace_nan_and_none(data)
     profile = DotMap(data)
 
-    profile.data.log_sensitivity = np.array(profile.data.log_sensitivity)
-    profile.data.dye_density = np.array(profile.data.dye_density)
-    profile.data.density_curves = np.array(profile.data.density_curves)
-    profile.data.log_exposure = np.array(profile.data.log_exposure)
-    profile.data.wavelengths = np.array(profile.data.wavelengths)
-    profile.data.density_curves_layers = np.array(profile.data.density_curves_layers)
+    # Use asarray to avoid copy if already numpy arrays (though unlikely from JSON)
+    profile.data.log_sensitivity = np.asarray(profile.data.log_sensitivity)
+    profile.data.dye_density = np.asarray(profile.data.dye_density)
+    profile.data.density_curves = np.asarray(profile.data.density_curves)
+    profile.data.log_exposure = np.asarray(profile.data.log_exposure)
+    profile.data.wavelengths = np.asarray(profile.data.wavelengths)
+    profile.data.density_curves_layers = np.asarray(profile.data.density_curves_layers)
     return profile

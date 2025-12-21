@@ -154,7 +154,7 @@ def unmix_sensitivity(profile, control_plot=False):
     densitometer_crosstalk_matrix = compute_densitometer_crosstalk_matrix(dr, dye_density[:,0:3])
     density_curves_densitometer_minus_dmin = np.einsum('ij,kj->ki', densitometer_crosstalk_matrix, density_curves)
 
-    log_sensitivity_prefit = np.copy(log_sensitivity)
+    log_sensitivity_prefit = log_sensitivity.copy()  # More explicit than np.copy()
     # unmix sensitivity
     log_exposure_reference_sensitivity = find_log_exposure_reference(log_exposure,
                                                            density_curves_densitometer_minus_dmin,
@@ -354,7 +354,7 @@ def apply_masking_couplers(profile, control_plot=True, effectiveness=1.0, model=
         wl_scaled = (wl[:,None]-cross_over_points)/transition_widths
         
         coupler_mask_spectral = (scipy.special.erf(wl_scaled) + 1 + effectiveness)/(2+effectiveness)
-        ddcmy = copy.copy(dd[:,0:3])
+        ddcmy = dd[:,0:3].copy()  # More efficient than copy.copy() for numpy arrays
         
         dd_w_couplers = ddcmy * coupler_mask_spectral
         profile.data.dye_density[:,0:3] = dd_w_couplers
@@ -369,7 +369,7 @@ def apply_masking_couplers(profile, control_plot=True, effectiveness=1.0, model=
                     density[:,i] += ps[2] * np.exp( -(wl-ps[0])**2/(2*ps[1]**2) )
             return density
         coupler_mask_spectral_subtractive = spectral_profiles(wl, p_couplers)
-        ddcmy = copy.copy(dd[:,0:3])
+        ddcmy = dd[:,0:3].copy()  # More efficient than copy.copy() for numpy arrays
         dd_w_couplers = ddcmy - coupler_mask_spectral_subtractive*effectiveness
         profile.data.dye_density[:,0:3] = dd_w_couplers    
     
@@ -445,7 +445,7 @@ def replace_fitted_density_curves(profile, control_plot=False):
     # fit density for smoother curves and complete toe and shoulder
     density_curves_fitting_parameters = fit_density_curves(le, dc, type=type)
     print('density_curves_fitting_parameters: ', density_curves_fitting_parameters)
-    density_curves_prefit = np.copy(dc)
+    density_curves_prefit = dc.copy()  # More explicit than np.copy()
     dc = compute_density_curves(le, density_curves_fitting_parameters, type=type)
     profile.data.density_curves = dc
     profile.data.density_curves_layers = compute_density_curves_layers(le, density_curves_fitting_parameters, type=type)

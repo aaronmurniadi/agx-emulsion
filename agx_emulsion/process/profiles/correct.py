@@ -96,8 +96,9 @@ def gray_ramp(p0, density_scale=[1,1,1], shift_corr=[0,0,0], stretch_corr=[1,1,1
     return gray, midgray_rgb
 
 def apply_scale_shift_stretch_density_curves(profile, density_scale=[1,1,1], log_exposure_shift=[0,0,0], log_exposure_strech=[1,1,1]):
-    dc = copy.copy(profile.data.density_curves)
-    le = copy.copy(profile.data.log_exposure)
+    # Use .copy() for numpy arrays - more efficient than copy.copy()
+    dc = profile.data.density_curves.copy()
+    le = profile.data.log_exposure.copy()
     dc = dc * density_scale
     for i in np.arange(3):
         dc[:,i] = np.interp(le, le/log_exposure_strech[i]+log_exposure_shift[i], dc[:,i])

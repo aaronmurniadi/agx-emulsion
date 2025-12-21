@@ -39,13 +39,17 @@ def load_image_oiio(filename):
             raise Exception("Failed to read image data from " + filename)
         
         # Convert the raw data to a NumPy array and reshape it
-        np_pixels = np.array(pixels)
-        np_pixels = np_pixels.reshape(spec.height, spec.width, spec.nchannels)
+        # Use asarray to avoid copy if pixels is already an array
+        if isinstance(pixels, np.ndarray):
+            np_pixels = pixels.reshape(spec.height, spec.width, spec.nchannels)
+        else:
+            np_pixels = np.asarray(pixels).reshape(spec.height, spec.width, spec.nchannels)
         
+        # Convert to float64 in-place to avoid intermediate copies
         if spec.format == oiio.TypeDesc("uint16"):
-            np_pixels = np.double(np_pixels)/(2**16-1)
-        if spec.format == oiio.TypeDesc("uint8"):
-            np_pixels = np.double(np_pixels)/(2**8-1)
+            np_pixels = np_pixels.astype(np.float64, copy=False) / (2**16-1)
+        elif spec.format == oiio.TypeDesc("uint8"):
+            np_pixels = np_pixels.astype(np.float64, copy=False) / (2**8-1)
         
         return np_pixels
     finally:
@@ -156,8 +160,12 @@ def load_agx_emulsion_data(stock='kodak_portra_400',
                            type='negative',
                            color=True,
                            spectral_shape=SPECTRAL_SHAPE,
-                           log_exposure=np.copy(LOG_EXPOSURE),
+                           log_exposure=None,
                            ):
+    # Use default LOG_EXPOSURE if not provided, but avoid copy if caller provides array
+    if log_exposure is None:
+        log_exposure = LOG_EXPOSURE
+    
     if    color and type=='negative': maindatapkg = "agx_emulsion.data.film.negative"
     elif  color and type=='positive': maindatapkg = "agx_emulsion.data.film.positive"
     elif  color and type=='paper':    maindatapkg = "agx_emulsion.data.paper"
