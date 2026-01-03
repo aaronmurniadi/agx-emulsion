@@ -2,10 +2,63 @@ import matplotlib.pyplot as plt
 import numpy as np
 from agx_emulsion.process.profiles.factory import create_profile, process_negative_profile, process_paper_profile, plot_profile, replace_fitted_density_curves, adjust_log_exposure
 from agx_emulsion.process.profiles.io import save_profile, load_profile
+from agx_emulsion.process.utils.io import read_neutral_ymc_filter_values, save_ymc_filter_values
 from agx_emulsion.process.profiles.correct import correct_negative_curves_with_gray_ramp, align_midscale_neutral_exposures
+from agx_emulsion.process.utils.fit_print_filters import fit_print_filters
+from agx_emulsion.process.core.process import photo_params
 
 process_print_paper = False
 process_negative = True
+
+def calculate_and_save_ymc_filters(negative_stock, print_paper_stock, illuminant='TH-KG3-L'):
+    """
+    Calculate YMC filter values for neutral balance and save to database.
+    This is used to populate the YMC filters database with new film-paper combinations.
+    """
+    print(f'Calculating YMC filters for {negative_stock} on {print_paper_stock}...')
+
+    # Load existing YMC filters
+    ymc_filters = read_neutral_ymc_filter_values()
+
+    # Check if already exists
+    if (print_paper_stock in ymc_filters and
+        illuminant in ymc_filters[print_paper_stock] and
+        negative_stock in ymc_filters[print_paper_stock][illuminant]):
+        print(f'YMC filters already exist for {negative_stock} on {print_paper_stock}')
+        return ymc_filters[print_paper_stock][illuminant][negative_stock]
+
+    # Start with a basic parameter set
+    params = photo_params(negative_stock, print_paper_stock, ymc_filters_from_database=False)
+
+    # Modify settings for fitting
+    params.enlarger.print_exposure_compensation = False  # Disable for fitting
+    params.camera.auto_exposure = False
+    params.debug.deactivate_spatial_effects = True
+    params.debug.deactivate_stochastic_effects = True
+    params.print_paper.glare.active = False
+    params.settings.rgb_to_raw_method = 'mallett2019'
+    params.io.input_cctf_decoding = False
+    params.io.input_color_space = 'sRGB'
+    params.io.output_cctf_encoding = False
+    params.io.resize_factor = 1.0
+
+    # Fit the filters
+    y_filter, m_filter, _ = fit_print_filters(params, iterations=5)
+
+    ymc_values = [y_filter, m_filter, params.enlarger.c_filter_neutral]
+    print(f'Calculated YMC filters: [{ymc_values[0]:.3f}, {ymc_values[1]:.3f}, {ymc_values[2]:.3f}]')
+
+    # Save to database
+    if print_paper_stock not in ymc_filters:
+        ymc_filters[print_paper_stock] = {}
+    if illuminant not in ymc_filters[print_paper_stock]:
+        ymc_filters[print_paper_stock][illuminant] = {}
+
+    ymc_filters[print_paper_stock][illuminant][negative_stock] = ymc_values
+    save_ymc_filter_values(ymc_filters)
+    print(f'Saved YMC filters to database')
+
+    return ymc_values
 
 print('----------------------------------------')
 print('Paper profiles')
@@ -135,5 +188,37 @@ if process_negative:
         profile = adjust_log_exposure(profile)
         save_profile(profile, 'c')
         plot_profile(profile)
+
+        # Calculate and save YMC filters for this film-paper combination
+        try:
+            final_profile_name = label + suffix + 'uc'  # The final corrected profile name
+            calculate_and_save_ymc_filters(final_profile_name, target_paper)
+        except Exception as e:
+            print(f'Warning: Could not calculate YMC filters for {final_profile_name} on {target_paper}: {e}')
+
+print('----------------------------------------')
+print('Populating missing YMC filters')
+
+# List of common paper stocks to check against
+common_papers = ['kodak_portra_endura_uc', 'kodak_supra_endura_uc', 'kodak_endura_premier_uc',
+                 'kodak_ektacolor_edge_uc', 'kodak_ultra_endura_uc', 'fujifilm_crystal_archive_typeii_uc',
+                 'kodak_2383_uc', 'kodak_2393_uc']
+
+# Get all negative profiles that end with 'auc' (corrected profiles)
+import os
+import glob
+profile_dir = os.path.join(os.path.dirname(__file__), '..', 'agx_emulsion', 'data', 'profiles')
+json_files = glob.glob(os.path.join(profile_dir, '*.json'))
+
+for json_file in json_files:
+    filename = os.path.basename(json_file)
+    if filename.endswith('auc.json'):  # corrected negative profiles
+        film_stock = filename[:-5]  # remove .json
+        for paper_stock in common_papers:
+            try:
+                calculate_and_save_ymc_filters(film_stock, paper_stock)
+            except Exception as e:
+                # Skip if profile doesn't exist or other errors
+                pass
 
 plt.show()
