@@ -125,7 +125,7 @@ def interpolate_to_common_axis(data, new_x,
         interpolator = scipy.interpolate.Akima1DInterpolator(x, y, extrapolate=extrapolate)
     elif method=='linear':
         def interpolator(x_new):
-            return np.interp(x_new, x, y) #, left=np.nan, right=np.nan)
+            return np.interp(x_new, x, y) #, left=np.none, right=np.nan)
     elif method=='smoothing_spline':
         interpolator = scipy.interpolate.make_smoothing_spline(x, y)
     new_data = interpolator(new_x)

@@ -1,19 +1,11 @@
 import matplotlib.pyplot as plt
 import numpy as np
-import scipy
-import copy
 from agx_emulsion.process.profiles.factory import create_profile, process_negative_profile, process_paper_profile, plot_profile, replace_fitted_density_curves, adjust_log_exposure
-from agx_emulsion.process.profiles.io import save_profile
+from agx_emulsion.process.profiles.io import save_profile, load_profile
 from agx_emulsion.process.profiles.correct import correct_negative_curves_with_gray_ramp, align_midscale_neutral_exposures
-from agx_emulsion.process.core.process import photo_params
-from agx_emulsion.process.physics.stocks import FilmStocks, PrintPapers, Illuminants
-from agx_emulsion.process.utils.fit_print_filters import fit_print_filters
-from agx_emulsion.process.physics.illuminants import standard_illuminant
-from agx_emulsion.process.utils.io import save_ymc_filter_values
 
 process_print_paper = False
 process_negative = True
-process_ymc_filters = True
 
 print('----------------------------------------')
 print('Paper profiles')
@@ -56,6 +48,7 @@ stock_info = [
               ('kodak_vision3_200t',     'Kodak Vision3 200T',        '',      None       , None,               None,                0.2,        'T',    'kodak_2383_uc',             None,          0.3,         False),
               ('kodak_vision3_500t',     'Kodak Vision3 500T',        '',      None       , None,               None,                0.2,        'T',    'kodak_2383_uc',             None,          0.3,         False),
               ('kodak_ektar_100',        'Kodak Ektar 100',           '',      'generic_a', None,               None,                0.2,        'D55',  'kodak_portra_endura_uc',    None,          1.0,         False),
+              ('kodak_pro_image_100',    'Kodak Pro Image 100',       '',      'generic_a', None,               None,                0.2,        'D55',  'kodak_portra_endura_uc',    None,          1.0,         True),
               ('kodak_portra_160',       'Kodak Portra 160',          '',      'generic_a', None,               None,                0.2,        'D55',  'kodak_portra_endura_uc',    None,          1.0,         False),
               ('kodak_portra_400',       'Kodak Portra 400',          '',      'generic_a', None,               None,                0.2,        'D55',  'kodak_portra_endura_uc',    None,          1.0,         False),
               ('kodak_portra_800',       'Kodak Portra 800',          '',      'generic_a', None,               None,                0.2,        'D55',  'kodak_portra_endura_uc',    None,          1.0,         False),
@@ -66,8 +59,6 @@ stock_info = [
               ('fujifilm_pro_400h',      'Fujifilm Pro 400H',         '',      'generic_a', None,               None,                1.0,        'D55',  'kodak_portra_endura_uc',    'mid',         0.3,         False),
               ('fujifilm_xtra_400',      'Fujifilm X-Tra 400',        '',      'generic_a', None,               None,                1.0,        'D55',  'kodak_portra_endura_uc',    None,          0.3,         False),
               ('fujifilm_c200',          'Fujifilm C200',             '',      'generic_a', None,               None,                1.0,        'D55',  'kodak_portra_endura_uc',    'green',       0.3,         False),
-              ('kodak_100t_5247',        'Kodak 100T 5247',           '',      'generic_a', None,               None,                0.2,        'T',  'kodak_portra_endura_uc',      'mid',         1.0,         True),
-              ('kodak_pro_image_100',    'Kodak Pro Image 100',       '',      'generic_a', None,               None,                0.2,        'D55',  'kodak_portra_endura_uc',    None,          0.3,         False),
               ]
 
 if process_negative:
@@ -91,87 +82,58 @@ if process_negative:
         save_profile(profile, suffix+'u')
         if align_mid_exp is not None:
             profile = align_midscale_neutral_exposures(profile, reference_channel=align_mid_exp)
-        profile = correct_negative_curves_with_gray_ramp(profile, 
-                                                        target_paper=target_paper, 
-                                                        data_trustability=trustability)
+        
+        # Ensure paper profile has log_sensitivity before using it
+        try:
+            paper_profile = load_profile(target_paper)
+            log_sens = getattr(paper_profile.data, 'log_sensitivity', None)
+            needs_fix = False
+            # Check if log_sensitivity is None or invalid
+            if log_sens is None:
+                # Set a default NaN array to prevent crash
+                if hasattr(paper_profile.data, 'wavelengths') and paper_profile.data.wavelengths is not None:
+                    wl_arr = np.asarray(paper_profile.data.wavelengths)
+                    wl_len = len(wl_arr) if wl_arr.size > 0 else 1
+                    paper_profile.data.log_sensitivity = np.full((wl_len, 3), np.nan)
+                else:
+                    paper_profile.data.log_sensitivity = np.full((1, 3), np.nan)
+                print(f'Warning: Paper profile {target_paper} had None log_sensitivity, set to NaN array')
+                needs_fix = True
+            elif isinstance(log_sens, np.ndarray) and log_sens.dtype == object:
+                # Handle object array with None values
+                if hasattr(paper_profile.data, 'wavelengths') and paper_profile.data.wavelengths is not None:
+                    wl_arr = np.asarray(paper_profile.data.wavelengths)
+                    wl_len = len(wl_arr) if wl_arr.size > 0 else 1
+                    paper_profile.data.log_sensitivity = np.full((wl_len, 3), np.nan)
+                else:
+                    paper_profile.data.log_sensitivity = np.full((1, 3), np.nan)
+                print(f'Warning: Paper profile {target_paper} had invalid log_sensitivity dtype, set to NaN array')
+                needs_fix = True
+            
+            # Save the fixed profile so it's used when correct_negative_curves_with_gray_ramp loads it
+            if needs_fix:
+                # Save with the target_paper name (which may include _uc suffix)
+                original_stock = paper_profile.info.stock
+                paper_profile.info.stock = target_paper
+                # save_profile adds the suffix to stock, so we need to remove it first if present
+                if target_paper.endswith('_uc'):
+                    paper_profile.info.stock = target_paper[:-3]
+                    save_profile(paper_profile, '_uc')
+                else:
+                    paper_profile.info.stock = target_paper
+                    save_profile(paper_profile, '')
+                paper_profile.info.stock = original_stock
+            
+            profile = correct_negative_curves_with_gray_ramp(profile, 
+                                                            target_paper=target_paper, 
+                                                            data_trustability=trustability)
+        except Exception as e:
+            print(f'Warning: Could not load or validate paper profile {target_paper}: {e}')
+            print('Skipping correction step')
+        
         profile = replace_fitted_density_curves(profile)
         profile = adjust_log_exposure(profile)
         save_profile(profile, 'c')
         plot_profile(profile)
 
-
-print('----------------------------------------')
-print('YMC Filter calculation')
-
-def make_ymc_filters_dictionary(PrintPapers, Illuminants, FilmStocks):
-    ymc_filters_0 = {}
-    residues = {}
-    for paper in PrintPapers:
-        ymc_filters_0[paper.value] = {}
-        residues[paper.value] = {}
-        for light in Illuminants:
-            ymc_filters_0[paper.value][light.value] = {}
-            residues[paper.value][light.value] = {}
-            for film in FilmStocks:
-                ymc_filters_0[paper.value][light.value][film.value] = [0.90, 0.70, 0.35]
-                residues[paper.value][light.value][film.value] = 0.184
-    ymc_filters = copy.copy(ymc_filters_0)
-    save_ymc_filter_values(ymc_filters)
-    return ymc_filters, residues
-
-def fit_all_stocks(ymc_filters, residues, iterations=5, randomess_starting_points=0.5):
-    ymc_filters_out = copy.deepcopy(ymc_filters)
-    r = randomess_starting_points
-    
-    for paper in PrintPapers:
-        print(' '*20)
-        print('#'*20)
-        print(paper.value)
-        for light in Illuminants:
-            print('-'*20)
-            print(light.value)
-            for stock in FilmStocks:
-                if residues[paper.value][light.value][stock.value] > 5e-4:
-                    y0 = ymc_filters[paper.value][light.value][stock.value][0]
-                    m0 = ymc_filters[paper.value][light.value][stock.value][1]
-                    c0 = ymc_filters[paper.value][light.value][stock.value][2]
-                    y0 = np.clip(y0, 0, 1)*(1-r) + np.random.uniform(0,1)*r
-                    m0 = np.clip(m0, 0, 1)*(1-r) + np.random.uniform(0,1)*r
-                    
-                    p = photo_params(negative=stock.value, print_paper=paper.value, ymc_filters_from_database=False)
-                    p.enlarger.illuminant = light.value
-                    p.enlarger.y_filter_neutral = y0
-                    p.enlarger.m_filter_neutral = m0
-                    p.enlarger.c_filter_neutral = c0
-            
-                    yf, mf, res = fit_print_filters(p, iterations=iterations)
-                    ymc_filters_out[paper.value][light.value][stock.value] = [yf, mf, c0]
-                    residues[paper.value][light.value][stock.value] = np.sum(np.abs(res))
-    return ymc_filters_out
-
-if process_ymc_filters:
-    plot_data = False
-    density_midgray_test = False
-    print_filter_test = False
-    spread = 0.2
-    
-    d55 = standard_illuminant(type='D55', return_class=True)
-    
-    ymc_filters, residues = make_ymc_filters_dictionary(PrintPapers, Illuminants, FilmStocks)
-    ymc_filters = fit_all_stocks(ymc_filters, residues, iterations=20)
-    save_ymc_filter_values(ymc_filters)
-
-    if print_filter_test:
-        for paper in PrintPapers:
-            for stock in FilmStocks:
-                for light in Illuminants:
-                    if stock.value.type=='negative':
-                        YMC = ymc_filters[paper.value][light.value][stock.value]
-                        paper.value.print_filter_test(stock.value, light.value[:], d55[:],
-                                                        y_filter=YMC[0],
-                                                        m_filter=YMC[1],
-                                                        c_filter=YMC[2],
-                                                        y_filter_spread=spread,
-                                                        m_filter_spread=spread)
-
-# plt.show()
+plt.show()
