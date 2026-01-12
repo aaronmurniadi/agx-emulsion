@@ -9,6 +9,8 @@ In this project we will experiment with the simulation of color film photography
 
 ![Data extracted from the datasheet of Kodak Portra 400](img/readme/example_data_kodak_portra_400.png)
 
+To help with extracting data from datasheets, you can use the [WebPlotDigitizer](https://automeris.io/wpd/?v=5_2) tool. This online tool allows you to upload graphical datasheets and automatically extract numerical data points from plots, which can then be used in your simulations.
+
 An example of data from print paper Kodak Portra Endura (data-sheet e4021, 2009) is in the next figure.
 
 ![Data extracted from the datasheet of Kodak Ektacolor Edge](img/readme/example_data_kodak_portra_endura.png)
