@@ -205,7 +205,7 @@ class AgXEmulsionConfiguration(QWidget):
         self.add_spin(general_layout, "Format (mm)", 35.0, 1.0, 1000.0, 1.0, 1, "Long edge of the film format in millimeters", "film_format_mm", s)
         self.add_spin(general_layout, "Lens Blur (um)", 0.0, 0.0, 100.0, 0.1, 2, "Sigma of gaussian filter in um for the camera lens blur", "camera_lens_blur_um", s)
         self.add_spin(general_layout, "Exposure Comp (EV)", 0.0, -100.0, 100.0, 0.5, 2, "Exposure compensation value in ev of the negative", "exposure_compensation_ev", s)
-        self.add_checkbox(general_layout, "Auto Exposure", False, "Automatically adjust exposure based on the image content", "auto_exposure", s)
+        self.add_checkbox(general_layout, "Auto Exposure", True, "Automatically adjust exposure based on the image content", "auto_exposure", s)
         self.add_combo(general_layout, "Auto Exposure Method", AutoExposureMethods, AutoExposureMethods.center_weighted, "", "auto_exposure_method", s)
         
         main_layout.addLayout(general_layout)
