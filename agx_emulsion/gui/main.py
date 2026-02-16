@@ -315,6 +315,7 @@ class AgXEmulsionConfiguration(QWidget):
         self.add_tuple_spin(layout, "Unsharp Mask", (0.7, 0.7), 0.0, 100.0, 0.1, "Apply unsharp mask [sigma, amount]", "scan_unsharp_mask", s, value_labels=("Sigma", "Amount"))
         self.add_combo(layout, "Output Color Space", RGBColorSpaces, RGBColorSpaces.sRGB, "Color space of the output image", "output_color_space", s)
         self.add_checkbox(layout, "Output CCTF Encoding", True, "Apply the cctf transfer function", "output_cctf_encoding", s)
+        self.add_checkbox(layout, "Compute Negative", False, "Render the intermediate negative as output", "compute_negative", s)
         self.tabs.addTab(self.create_scroll_area(widget), "Scanner")
 
     def setup_advanced_tab(self):
